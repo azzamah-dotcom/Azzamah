@@ -1,7 +1,7 @@
 // Offline support. The app's own files are fetched fresh from the server on every open (so edits
 // show up as soon as the app is reopened) and fall back to the saved copy when there is no internet.
 // Fonts are served from the saved copy first since they never change.
-var CACHE = "azkar-v8";
+var CACHE = "azkar-v9";
 var SHELL = ["./", "index.html", "prayer.js", "app.js", "azkar.json", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {
@@ -66,7 +66,12 @@ self.addEventListener("notificationclick", function (e) {
 self.addEventListener("push", function (e) {
   var d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { title: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.title || "حصن الأذكار", {
-    body: d.body || "", icon: "icon-192.png", badge: "icon-192.png", tag: d.tag, data: { url: d.url || "./" }, lang: "ar", dir: "rtl"
+  // If the app is on screen it shows its own alert with sound, so the notification stays silent.
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+    var onScreen = list.some(function (c) { return c.visibilityState === "visible"; });
+    return self.registration.showNotification(d.title || "حصن الأذكار", {
+      body: d.body || "", icon: "icon-192.png", badge: "icon-192.png", tag: d.tag, silent: onScreen,
+      data: { url: d.url || "./" }, lang: "ar", dir: "rtl"
+    });
   }));
 });

@@ -49,11 +49,10 @@
     catch (e) { return false; }
   }
 
-  // Returns Date objects for fajr, sunrise, dhuhr, asr, maghrib, isha on the given local day.
-  function compute(date, lat, lng, methodKey, hanafi) {
+  // Times (as UTC milliseconds) for the calendar day y-mo-d in a place whose UTC offset is tz hours.
+  function computeFor(y, mo, d, tz, lat, lng, methodKey, hanafi) {
     var m = METHODS[methodKey] || METHODS.mwl;
-    var y = date.getFullYear(), mo = date.getMonth(), d = date.getDate();
-    var tz = -new Date(y, mo, d, 12).getTimezoneOffset() / 60;
+    var date = new Date(Date.UTC(y, mo, d, 12));
     var jd = julian(y, mo + 1, d) - lng / (15 * 24);
     var asrF = hanafi ? 2 : 1;
 
@@ -102,14 +101,22 @@
       if (isNaN(t.isha) || timeDiff(t.sunset, t.isha) > ip) t.isha = t.sunset + ip;
     }
 
-    var base = new Date(y, mo, d).getTime(), out = {};
+    var base = Date.UTC(y, mo, d) - tz * 3600000, out = {};
     ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"].forEach(function (k) {
-      var mins = Math.round(t[k] * 60);
-      out[k] = new Date(base + mins * 60000);
+      out[k] = base + Math.round(t[k] * 60) * 60000;
     });
     return out;
   }
 
-  root.PrayerCalc = { compute: compute, METHODS: METHODS, COUNTRY: COUNTRY, HANAFI: HANAFI };
+  // Date objects for the given day in the phone's own timezone.
+  function compute(date, lat, lng, methodKey, hanafi) {
+    var y = date.getFullYear(), mo = date.getMonth(), d = date.getDate();
+    var tz = -new Date(y, mo, d, 12).getTimezoneOffset() / 60;
+    var ms = computeFor(y, mo, d, tz, lat, lng, methodKey, hanafi), out = {};
+    for (var k in ms) out[k] = new Date(ms[k]);
+    return out;
+  }
+
+  root.PrayerCalc = { compute: compute, computeFor: computeFor, METHODS: METHODS, COUNTRY: COUNTRY, HANAFI: HANAFI };
   if (typeof module !== "undefined") module.exports = root.PrayerCalc;
-})(typeof window !== "undefined" ? window : this);
+})(typeof window !== "undefined" ? window : globalThis);

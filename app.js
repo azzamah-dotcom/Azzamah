@@ -622,7 +622,7 @@
     var moved = !place || Math.abs(place.lat - lat) > 0.05 || Math.abs(place.lon - lon) > 0.05;
     place = { lat: lat, lon: lon, cc: place && !moved ? place.cc : "", city: place && !moved ? place.city : "" };
     lsSet("azkar-place", JSON.stringify(place));
-    computeTimes(); renderPrayer();
+    computeTimes(); renderPrayer(); syncPush();
     if (moved || !place.cc) {
       // City name and country (to pick the right calculation method); the times work without it.
       fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=ar")
@@ -631,7 +631,7 @@
           place.cc = (g.countryCode || "").toUpperCase();
           place.city = [g.city || g.locality, g.countryName].filter(Boolean).join("، ");
           lsSet("azkar-place", JSON.stringify(place));
-          computeTimes(); renderPrayer();
+          computeTimes(); renderPrayer(); syncPush();
         }).catch(function () {});
     }
   }
@@ -641,8 +641,8 @@
     Object.keys(PC.METHODS).forEach(function (k) { var o = el("option", null, PC.METHODS[k].name); o.value = k; sel.appendChild(o); });
     sel.value = lsGet("azkar-pt-method") || "auto";
     $("sAsr").value = lsGet("azkar-pt-asr") || "auto";
-    sel.addEventListener("change", function () { lsSet("azkar-pt-method", sel.value); computeTimes(); renderPrayer(); toast("تم تحديث أوقات الصلاة"); });
-    $("sAsr").addEventListener("change", function () { lsSet("azkar-pt-asr", $("sAsr").value); computeTimes(); renderPrayer(); toast("تم تحديث أوقات الصلاة"); });
+    sel.addEventListener("change", function () { lsSet("azkar-pt-method", sel.value); computeTimes(); renderPrayer(); syncPush(); toast("تم تحديث أوقات الصلاة"); });
+    $("sAsr").addEventListener("change", function () { lsSet("azkar-pt-asr", $("sAsr").value); computeTimes(); renderPrayer(); syncPush(); toast("تم تحديث أوقات الصلاة"); });
   })();
   computeTimes();
   setInterval(tickPrayer, 1000);
@@ -651,7 +651,7 @@
   var NDEF = { adhan: true, iqama: true, after: true, adhkar: true, sound: true, iq: { fajr: 20, dhuhr: 15, asr: 15, maghrib: 10, isha: 15 } };
   var nset = clone(NDEF);
   try { var ns = JSON.parse(lsGet("azkar-notif") || "null"); if (ns) { for (var nk in ns) nset[nk] = ns[nk]; nset.iq = Object.assign({}, NDEF.iq, ns.iq || {}); } } catch (e) {}
-  function saveN() { lsSet("azkar-notif", JSON.stringify(nset)); }
+  function saveN() { lsSet("azkar-notif", JSON.stringify(nset)); if (typeof syncPush === "function") syncPush(); }
 
   function buildEvents() {
     if (!ptTimes) return [];
@@ -756,6 +756,7 @@
     if (!("Notification" in window)) { syncNotifAsk(); return; }
     Notification.requestPermission().then(function (p) {
       syncNotifAsk();
+      if (p === "granted") syncPush();
       toast(p === "granted" ? "تم تفعيل التنبيهات" : "لم يُسمح بالإشعارات؛ ستظهر التنبيهات داخل التطبيق فقط");
     }).catch(function () { syncNotifAsk(); });
   }
@@ -764,6 +765,9 @@
   $("nTest").addEventListener("click", function () {
     unlockAudio();
     setTimeout(function () { fireAlert({ id: "test", kind: "adhan", title: "تجربة التنبيه", body: "هكذا سيظهر تنبيه الأذان عند دخول وقت الصلاة.", url: "#times" }); }, 150);
+    // Also ask the server to send a real notification, to confirm alerts arrive while the app is closed.
+    var ep = lsGet("azkar-push-ep");
+    if (pushUrl() && ep) fetch(pushUrl() + "/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: ep }) }).catch(function () {});
   });
   // Settings controls
   ["adhan", "iqama", "after", "adhkar", "sound"].forEach(function (k) {
@@ -777,6 +781,42 @@
     inp.addEventListener("change", function () { var v = parseInt(inp.value, 10); nset.iq[k] = v >= 0 && v <= 90 ? v : NDEF.iq[k]; inp.value = nset.iq[k]; saveN(); });
   });
   syncNotifAsk();
+
+  // ---------- Background notifications (Web Push through the notification server) ----------
+  // The server address lives in azkar.json ("push"), so it can be set without changing the app.
+  var pushTimer = null, pushOk = false;
+  function pushUrl() { return data && data.push ? String(data.push).replace(/\/+$/, "") : ""; }
+  function u8(b64) {
+    var s = atob(b64.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((b64.length + 3) % 4)), out = new Uint8Array(s.length);
+    for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+    return out;
+  }
+  function syncPush() { clearTimeout(pushTimer); pushTimer = setTimeout(doSyncPush, 1500); }
+  function doSyncPush() {
+    var base = pushUrl();
+    if (!base || !place || !("PushManager" in window) || !("Notification" in window) || Notification.permission !== "granted" || !navigator.serviceWorker) return;
+    var reg;
+    navigator.serviceWorker.ready.then(function (r) {
+      reg = r;
+      return fetch(base + "/vapid").then(function (x) { return x.json(); });
+    }).then(function (v) {
+      var key = u8(v.key);
+      return reg.pushManager.getSubscription().then(function (sub) {
+        if (sub && lsGet("azkar-push-key") === v.key) return sub;
+        var drop = sub ? sub.unsubscribe() : Promise.resolve();
+        return drop.then(function () { return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }); })
+          .then(function (ns) { lsSet("azkar-push-key", v.key); return ns; });
+      });
+    }).then(function (sub) {
+      var tz = "UTC";
+      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) {}
+      return fetch(base + "/subscribe", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sub: sub.toJSON(), lat: place.lat, lon: place.lon, tz: tz, method: ptMethod(), hanafi: ptHanafi(), city: place.city || "",
+          n: { adhan: nset.adhan, iqama: nset.iqama, after: nset.after, adhkar: nset.adhkar, iq: nset.iq } })
+      }).then(function (r) { pushOk = r.ok; lsSet("azkar-push-ep", sub.endpoint); });
+    }).catch(function () { pushOk = false; });
+  }
 
   window.addEventListener("hashchange", render);
   // Coming back after 10+ minutes away: reload so the latest version (and any list edits) show up.
@@ -794,6 +834,7 @@
   fetchShared(false);
   renderPrayer();
   locate();
+  setTimeout(syncPush, 4000);
 
   if ("serviceWorker" in navigator) {
     var hadController = !!navigator.serviceWorker.controller, reloaded = false;
