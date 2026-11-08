@@ -109,7 +109,10 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .hero-ayah::before{content:"﴿ ";color:#d6b468}.hero-ayah::after{content:" ﴾";color:#d6b468}
 .hero-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:.85rem}
 .hero-foot span{color:#cfe0d8}
-.hero-foot a{color:#d6b468;text-decoration:none;font-weight:600}
+.hero{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.hero:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.hero:active{transform:scale(.995)}
+.hero-more{color:#d6b468!important;font-weight:600}
 .hero-timer{height:2px;background:rgb(255 255 255 / .12);border-radius:2px;margin-top:12px;overflow:hidden}
 .hero-timer i{display:block;height:100%;width:0;background:#d6b468}
 .hero.fade .hero-ayah{opacity:0}
@@ -129,7 +132,8 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .cd.e{right:8%;top:50%;transform:translateY(-50%)}
 .cd.w{left:8%;top:50%;transform:translateY(-50%)}
 .kaaba-arm{position:absolute;left:50%;top:50%;width:4px;height:44%;margin-left:-2px;transform-origin:50% 0;background:linear-gradient(to top,var(--accent),transparent);border-radius:2px}
-.kaaba{position:absolute;bottom:-14px;left:50%;width:30px;height:30px;margin-left:-15px;background:#1b1b1b;border-radius:4px;box-shadow:inset 0 7px 0 -3px #c9a54e,0 0 0 2px var(--paper)}
+.kaaba{position:absolute;bottom:-26px;left:50%;width:52px;height:52px;margin-left:-26px;filter:drop-shadow(0 2px 3px rgb(0 0 0 / .35));transition:transform .15s linear}
+.kaaba svg{width:100%;height:100%;display:block}
 .qibla.aligned .dial{border-color:var(--accent);box-shadow:0 0 0 6px var(--accent-soft)}
 .q-status{margin:0;font-weight:500;min-height:1.6em}
 .qibla.aligned .q-status{color:var(--accent)}
@@ -139,6 +143,19 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .q-stats span{font-size:.75rem;color:var(--muted)}
 .q-help{margin:0;color:var(--muted);font-size:.8rem;line-height:1.8;max-width:46ch}
 
+.sheet-back{position:fixed;inset:0;background:rgb(0 0 0 / .45);z-index:30}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;max-height:86vh;overflow-y:auto;background:var(--paper);border-radius:20px 20px 0 0;
+  padding:8px max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));
+  max-width:720px;margin:0 auto;box-shadow:0 -10px 40px rgb(0 0 0 / .2);animation:up .25s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:0}}
+.sheet-grip{width:40px;height:4px;border-radius:4px;background:var(--line);margin:4px auto 10px}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sheet-head h3{margin:0;font-size:1rem;color:var(--gold)}
+.sh-ayah{font-family:var(--f-text);font-size:1.55rem;line-height:2.1;margin:10px 0 4px;color:var(--ink)}
+.sheet h4{margin:16px 0 4px;font-size:.9rem;color:var(--accent)}
+.sheet p{margin:0;line-height:1.95;font-size:.98rem}
+.sheet .sh-src{margin-top:18px;font-size:.78rem;color:var(--muted)}
+.sh-read{display:block;text-align:center;text-decoration:none;margin-top:14px;padding:11px}
 .foot{margin-top:28px;color:var(--muted);font-size:.8rem;line-height:1.8}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -175,12 +192,12 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
     </div>
   </section>
 
-  <section class="hero" id="hero" hidden aria-live="polite">
+  <section class="hero" id="hero" hidden aria-live="polite" role="button" tabindex="0" aria-label="اضغط لعرض التفسير">
     <div class="hero-top"><span class="eyebrow">آية للتدبّر</span><button class="hero-next" id="ayahNext" type="button">آية أخرى</button></div>
     <p class="hero-ayah" id="ayahText"></p>
     <div class="hero-foot">
       <span id="ayahRef"></span>
-      <a id="ayahLink" href="https://quran.com" target="_blank" rel="noopener">اقرأ وردك اليوم ←</a>
+      <span class="hero-more">التفسير وسبب النزول ←</span>
     </div>
     <div class="hero-timer"><i id="ayahTimer"></i></div>
   </section>
@@ -203,16 +220,16 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
         <div class="dial" id="dial">
           <span class="cd n">ش</span><span class="cd e">شر</span><span class="cd s">ج</span><span class="cd w">غ</span>
           <div class="ticks"></div>
-          <div class="kaaba-arm" id="kaabaArm"><span class="kaaba" aria-label="الكعبة"></span></div>
+          <div class="kaaba-arm" id="kaabaArm"><span class="kaaba" id="kaabaIcon" aria-label="الكعبة المشرفة"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6 58 17 32 28 6 17z" fill="#3a3a3a"/><path d="M6 17 32 28v30L6 47z" fill="#121212"/><path d="M58 17 32 28v30l26-11z" fill="#1f1f1f"/><path d="M6 21.5 32 32.5 58 21.5v4.6L32 37.1 6 26.1z" fill="#c9a54e"/><path d="M6 23 32 34 58 23" stroke="#8a6d2a" stroke-width=".7" fill="none"/><path d="M12 33.5l7 2.9v14.5l-7-2.9z" fill="#c9a54e"/><path d="M13.4 35.4l4.2 1.75v11.6l-4.2-1.75z" fill="#a8873a"/></svg></span></div>
         </div>
       </div>
-      <p class="q-status" id="qStatus">اضغط «ابدأ» لتحديد موقعك واتجاه القبلة.</p>
+      <p class="q-status" id="qStatus">جارٍ تحديد موقعك…</p>
       <div class="q-stats">
         <div><b id="qBearing">—</b><span>اتجاه القبلة من الشمال</span></div>
         <div><b id="qDist">—</b><span>المسافة إلى مكة</span></div>
       </div>
-      <button class="btn primary" id="qStart" type="button">ابدأ</button>
-      <p class="q-help">ضع الجوال مسطّحًا بعيدًا عن المعادن والمغناطيس، ثم استدر حتى تصبح الكعبة أعلى الدائرة عند العلامة. إن كانت البوصلة غير دقيقة فحرّك الجوال في الهواء على شكل رقم 8 لمعايرتها.</p>
+      <div class="tools"><button class="btn primary" id="qCompass" type="button" hidden>تفعيل البوصلة</button><button class="btn" id="qStart" type="button">تحديث الموقع</button></div>
+      <p class="q-help">ضع الجوال مسطّحًا بعيدًا عن المعادن والمغناطيس، ثم استدر حتى تصبح الكعبة أعلى الدائرة عند العلامة الذهبية. إن كانت البوصلة غير دقيقة فحرّك الجوال في الهواء على شكل رقم 8 لمعايرتها.</p>
     </div>
   </section>
 
@@ -255,6 +272,17 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 
   <p class="foot">الأذكار مأخوذة من القرآن الكريم ومن الأحاديث الصحيحة والحسنة، مع ذكر المصدر ودرجة الحديث تحت كل ذكر. العداد يُحفظ على جهازك ويُصفَّر تلقائيًا كل يوم. يعمل التطبيق دون إنترنت بعد فتحه أول مرة.</p>
 </div>
+<div class="sheet-back" id="sheetBack" hidden></div>
+<section class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="shRef">
+  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-head"><h3 id="shRef"></h3><button class="icon-btn" id="shClose" type="button" aria-label="إغلاق"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <p class="sh-ayah" id="shAyah"></p>
+  <h4>التفسير</h4><p id="shTf"></p>
+  <h4>متى نزلت</h4><p id="shNz"></p>
+  <div id="shSbWrap"><h4>سبب النزول</h4><p id="shSb"></p></div>
+  <p class="sh-src">التفسير مختصر بتصرّف اعتمادًا على التفسير الميسّر وتفسير ابن كثير والسعدي.</p>
+  <a class="btn primary sh-read" id="shLink" href="https://quran.com" target="_blank" rel="noopener">اقرأ من هذا الموضع في المصحف</a>
+</section>
 <div class="toast" id="toast" hidden></div>
 <script src="app.js"></script>
 </body>

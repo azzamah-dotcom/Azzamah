@@ -100,6 +100,7 @@
     $("adhkarView").hidden = isQ; $("qiblaView").hidden = !isQ;
     if (isQ) {
       renderChips("qibla");
+      openQibla();
       $("addForm").hidden = true; $("editBar").hidden = !editing;
       return;
     }
@@ -310,7 +311,7 @@
   });
 
   // ---------- Quran banner: a new ayah on every open and every 5 minutes ----------
-  var AYAH_MS = 5 * 60 * 1000, ayahIdx = -1, ayahStart = 0, ayahList = null;
+  var AYAH_MS = 5 * 60 * 1000, ayahIdx = -1, ayahStart = 0, ayahList = null, curAyah = null;
   function renderBannerData() {
     var list = data && data.ayat;
     if (!list || !list.length) { $("hero").hidden = true; return; }
@@ -327,13 +328,41 @@
     function show() {
       $("ayahText").textContent = a.t;
       $("ayahRef").textContent = "سورة " + a.r + " · الآية " + a.a;
-      $("ayahLink").href = "https://quran.com/" + a.s + "/" + a.a;
+      curAyah = a;
       hero.classList.remove("fade");
     }
     if (animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) { hero.classList.add("fade"); setTimeout(show, 400); }
     else show();
   }
-  $("ayahNext").addEventListener("click", function () { nextAyah(true); });
+  $("ayahNext").addEventListener("click", function (ev) { ev.stopPropagation(); nextAyah(true); });
+
+  // Ayah details sheet: tafsir, when it was revealed, and the occasion of revelation if any.
+  var lastFocus = null;
+  function openSheet() {
+    var a = curAyah; if (!a) return;
+    $("shRef").textContent = "سورة " + a.r + " · الآية " + a.a;
+    $("shAyah").textContent = "﴿ " + a.t + " ﴾";
+    $("shTf").textContent = a.tf || "لم يُضف تفسير لهذه الآية بعد.";
+    $("shNz").textContent = a.nz || "—";
+    $("shSb").textContent = a.sb || "لم يثبت لهذه الآية سبب نزول خاص بحسب ما وقفنا عليه.";
+    $("shLink").href = "https://quran.com/" + a.s + "/" + a.a;
+    lastFocus = document.activeElement;
+    $("sheet").hidden = false; $("sheetBack").hidden = false;
+    $("sheet").scrollTop = 0;
+    document.body.style.overflow = "hidden";
+    $("shClose").focus();
+  }
+  function closeSheet() {
+    if ($("sheet").hidden) return;
+    $("sheet").hidden = true; $("sheetBack").hidden = true;
+    document.body.style.overflow = "";
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  $("hero").addEventListener("click", openSheet);
+  $("hero").addEventListener("keydown", function (ev) { if (ev.target === $("hero") && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); openSheet(); } });
+  $("shClose").addEventListener("click", closeSheet);
+  $("sheetBack").addEventListener("click", closeSheet);
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") closeSheet(); });
   setInterval(function () {
     if ($("hero").hidden || ayahIdx < 0) return;
     var t = Date.now() - ayahStart;
@@ -357,6 +386,7 @@
     var h = heading == null ? 0 : heading;
     $("dial").style.transform = "rotate(" + (-h) + "deg)";
     $("kaabaArm").style.transform = "rotate(" + (qibla.bearing + 180) + "deg)";
+    $("kaabaIcon").style.transform = "rotate(" + (h - qibla.bearing - 180) + "deg)";
     var box = document.querySelector(".qibla");
     if (heading == null) {
       box.classList.remove("aligned");
@@ -383,6 +413,7 @@
     if (h == null) return;
     var so = (screen.orientation && screen.orientation.angle) || 0;
     heading = (h + so + 360) % 360;
+    $("qCompass").hidden = true;
     drawQibla();
   }
   function startCompass() {
@@ -393,24 +424,41 @@
     setTimeout(function () { if (heading == null) drawQibla(); }, 2500);
   }
   try { var lastPos = JSON.parse(lsGet("azkar-pos") || "null"); if (lastPos) setPosition(lastPos.lat, lastPos.lon); } catch (e) {}
-  $("qStart").addEventListener("click", function () {
-    var DOE = window.DeviceOrientationEvent;
-    var perm = DOE && typeof DOE.requestPermission === "function" ? DOE.requestPermission().catch(function () { return "denied"; }) : Promise.resolve("granted");
-    startCompass();
-    perm.then(function (state) {
-      if (state !== "granted" && heading == null) $("qStatus").textContent = "لم يُسمح باستخدام البوصلة. أغلق التطبيق وافتحه ثم اضغط «ابدأ» واختر «سماح».";
-    });
+
+  var DOE = window.DeviceOrientationEvent;
+  var needsCompassPermission = !!(DOE && typeof DOE.requestPermission === "function");
+  var located = false, locating = false;
+  function locate(manual) {
+    if (locating) return;
     if (!navigator.geolocation) { $("qStatus").textContent = "تحديد الموقع غير مدعوم على هذا الجهاز."; return; }
-    $("qStatus").textContent = "جارٍ تحديد موقعك…";
+    locating = true;
+    if (!qibla) $("qStatus").textContent = "جارٍ تحديد موقعك…";
     navigator.geolocation.getCurrentPosition(function (pos) {
+      locating = false; located = true;
       var c = { lat: pos.coords.latitude, lon: pos.coords.longitude };
       lsSet("azkar-pos", JSON.stringify(c));
       setPosition(c.lat, c.lon);
-      $("qStart").textContent = "تحديث الموقع";
+      if (manual) toast("تم تحديث الموقع");
     }, function () {
-      $("qStatus").textContent = qibla ? "تعذّر تحديث الموقع، يُستخدم آخر موقع محفوظ." : "تعذّر تحديد موقعك. اسمح للتطبيق بالوصول إلى الموقع ثم اضغط «ابدأ».";
-    }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+      locating = false;
+      $("qStatus").textContent = qibla ? "تعذّر تحديث الموقع، يُستخدم آخر موقع محفوظ." : "تعذّر تحديد موقعك. اسمح للتطبيق بالوصول إلى الموقع من إعدادات الجوال، ثم اضغط «تحديث الموقع».";
+    }, { enableHighAccuracy: false, timeout: 15000, maximumAge: manual ? 0 : 600000 });
+  }
+  // Runs every time the Qibla screen opens: location starts by itself, and so does the compass where no tap is required.
+  function openQibla() {
+    if (!located) locate(false);
+    startCompass();
+    if (needsCompassPermission) {
+      setTimeout(function () { if (heading == null) $("qCompass").hidden = false; }, 800);
+    }
+  }
+  $("qCompass").addEventListener("click", function () {
+    DOE.requestPermission().then(function (state) {
+      if (state === "granted") { $("qCompass").hidden = true; startCompass(); }
+      else $("qStatus").textContent = "لم يُسمح باستخدام البوصلة. أغلق التطبيق وافتحه، ثم اضغط «تفعيل البوصلة» واختر «سماح».";
+    }).catch(function () { $("qStatus").textContent = "تعذّر تفعيل البوصلة على هذا الجهاز."; });
   });
+  $("qStart").addEventListener("click", function () { locate(true); });
 
   window.addEventListener("hashchange", render);
   document.addEventListener("visibilitychange", function () {
