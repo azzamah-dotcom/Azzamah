@@ -95,6 +95,50 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .msg{font-size:.85rem;min-height:1em}
 .msg.err{color:var(--danger)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.88rem;z-index:20}
+/* Quran banner */
+.hero{margin-top:16px;position:relative;overflow:hidden;border-radius:18px;padding:18px 20px 16px;color:#f4efe0;
+  background:radial-gradient(120% 140% at 100% 0%,#1d7a62 0%,#0d4a3c 55%,#082f27 100%)}
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.12;
+  background-image:repeating-conic-gradient(from 22.5deg,#d6b468 0 12.5%,transparent 0 25%);background-size:46px 46px;
+  -webkit-mask-image:linear-gradient(to left,#000,transparent 70%);mask-image:linear-gradient(to left,#000,transparent 70%)}
+.hero>*{position:relative;z-index:1}
+.hero-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.eyebrow{font-size:.75rem;letter-spacing:.04em;color:#d6b468;font-weight:600}
+.hero-next{background:rgb(255 255 255 / .1);border:1px solid rgb(255 255 255 / .2);color:#f4efe0;border-radius:999px;padding:4px 12px;font-size:.78rem}
+.hero-ayah{font-family:var(--f-text);font-size:1.6rem;line-height:2;margin:10px 0 8px;text-wrap:balance;transition:opacity .4s}
+.hero-ayah::before{content:"﴿ ";color:#d6b468}.hero-ayah::after{content:" ﴾";color:#d6b468}
+.hero-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:.85rem}
+.hero-foot span{color:#cfe0d8}
+.hero-foot a{color:#d6b468;text-decoration:none;font-weight:600}
+.hero-timer{height:2px;background:rgb(255 255 255 / .12);border-radius:2px;margin-top:12px;overflow:hidden}
+.hero-timer i{display:block;height:100%;width:0;background:#d6b468}
+.hero.fade .hero-ayah{opacity:0}
+.friday-note{display:block;margin-top:12px;background:var(--accent-soft);color:var(--accent);border-radius:12px;padding:10px 14px;font-size:.88rem;font-weight:500;text-decoration:none;line-height:1.7}
+.card .lbl.task{color:var(--gold)}
+
+/* Qibla */
+.qibla{margin-top:14px;background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:22px 18px;display:grid;justify-items:center;gap:14px;text-align:center}
+.dial-wrap{position:relative;width:min(78vw,300px);aspect-ratio:1;max-width:100%}
+.phone-mark{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:14px solid var(--gold);z-index:2}
+.dial{position:absolute;inset:0;border-radius:50%;border:2px solid var(--line);background:radial-gradient(circle,var(--paper) 58%,var(--bg) 59%);transition:transform .15s linear}
+.ticks{position:absolute;inset:6px;border-radius:50%;background:repeating-conic-gradient(var(--line) 0 1deg,transparent 1deg 15deg);
+  -webkit-mask:radial-gradient(circle,transparent 86%,#000 87%);mask:radial-gradient(circle,transparent 86%,#000 87%)}
+.cd{position:absolute;font-size:.85rem;font-weight:600;color:var(--muted)}
+.cd.n{top:8%;left:50%;transform:translateX(-50%);color:var(--danger)}
+.cd.s{bottom:8%;left:50%;transform:translateX(-50%)}
+.cd.e{right:8%;top:50%;transform:translateY(-50%)}
+.cd.w{left:8%;top:50%;transform:translateY(-50%)}
+.kaaba-arm{position:absolute;left:50%;top:50%;width:4px;height:44%;margin-left:-2px;transform-origin:50% 0;background:linear-gradient(to top,var(--accent),transparent);border-radius:2px}
+.kaaba{position:absolute;bottom:-14px;left:50%;width:30px;height:30px;margin-left:-15px;background:#1b1b1b;border-radius:4px;box-shadow:inset 0 7px 0 -3px #c9a54e,0 0 0 2px var(--paper)}
+.qibla.aligned .dial{border-color:var(--accent);box-shadow:0 0 0 6px var(--accent-soft)}
+.q-status{margin:0;font-weight:500;min-height:1.6em}
+.qibla.aligned .q-status{color:var(--accent)}
+.q-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:360px}
+.q-stats div{background:var(--bg);border-radius:12px;padding:10px;display:grid;gap:2px}
+.q-stats b{font-size:1.3rem;font-variant-numeric:tabular-nums}
+.q-stats span{font-size:.75rem;color:var(--muted)}
+.q-help{margin:0;color:var(--muted);font-size:.8rem;line-height:1.8;max-width:46ch}
+
 .foot{margin-top:28px;color:var(--muted);font-size:.8rem;line-height:1.8}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -131,12 +175,46 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
     </div>
   </section>
 
+  <section class="hero" id="hero" hidden aria-live="polite">
+    <div class="hero-top"><span class="eyebrow">آية للتدبّر</span><button class="hero-next" id="ayahNext" type="button">آية أخرى</button></div>
+    <p class="hero-ayah" id="ayahText"></p>
+    <div class="hero-foot">
+      <span id="ayahRef"></span>
+      <a id="ayahLink" href="https://quran.com" target="_blank" rel="noopener">اقرأ وردك اليوم ←</a>
+    </div>
+    <div class="hero-timer"><i id="ayahTimer"></i></div>
+  </section>
+
+  <a class="friday-note" id="fridayNote" href="#friday" hidden>اليوم الجمعة: لا تنسَ سورة الكهف، والصلاة على النبي ﷺ، وساعة الإجابة بعد العصر ←</a>
+
   <nav class="rail" aria-label="الأقسام"><div class="chips" id="chips"></div></nav>
 
-  <div class="progress"><div class="bar"><i id="barFill"></i></div><span id="progTxt">0 / 0</span></div>
-  <div class="cat-head"><h2 id="catTitle">جارٍ التحميل…</h2><button class="linkbtn" id="resetBtn" type="button">إعادة العداد</button></div>
+  <div id="adhkarView">
+    <div class="progress"><div class="bar"><i id="barFill"></i></div><span id="progTxt">0 / 0</span></div>
+    <div class="cat-head"><h2 id="catTitle">جارٍ التحميل…</h2><button class="linkbtn" id="resetBtn" type="button">إعادة العداد</button></div>
+    <div class="list" id="list"></div>
+  </div>
 
-  <div class="list" id="list"></div>
+  <section id="qiblaView" hidden>
+    <div class="cat-head"><h2>اتجاه القبلة</h2></div>
+    <div class="qibla">
+      <div class="dial-wrap">
+        <div class="phone-mark" aria-hidden="true"></div>
+        <div class="dial" id="dial">
+          <span class="cd n">ش</span><span class="cd e">شر</span><span class="cd s">ج</span><span class="cd w">غ</span>
+          <div class="ticks"></div>
+          <div class="kaaba-arm" id="kaabaArm"><span class="kaaba" aria-label="الكعبة"></span></div>
+        </div>
+      </div>
+      <p class="q-status" id="qStatus">اضغط «ابدأ» لتحديد موقعك واتجاه القبلة.</p>
+      <div class="q-stats">
+        <div><b id="qBearing">—</b><span>اتجاه القبلة من الشمال</span></div>
+        <div><b id="qDist">—</b><span>المسافة إلى مكة</span></div>
+      </div>
+      <button class="btn primary" id="qStart" type="button">ابدأ</button>
+      <p class="q-help">ضع الجوال مسطّحًا بعيدًا عن المعادن والمغناطيس، ثم استدر حتى تصبح الكعبة أعلى الدائرة عند العلامة. إن كانت البوصلة غير دقيقة فحرّك الجوال في الهواء على شكل رقم 8 لمعايرتها.</p>
+    </div>
+  </section>
 
   <form class="panel" id="addForm" hidden>
     <h3>إضافة ذكر أو دعاء</h3>

@@ -67,6 +67,10 @@
       a.setAttribute("aria-current", c.id === cat ? "true" : "false");
       chipsEl.appendChild(a);
     });
+    var q = el("a", "chip", "القبلة");
+    q.href = "#qibla";
+    q.setAttribute("aria-current", cat === "qibla" ? "true" : "false");
+    chipsEl.appendChild(q);
     var cur = chipsEl.querySelector('[aria-current="true"]');
     if (cur) cur.scrollIntoView({ block: "nearest", inline: "center" });
     var dl = $("catList"); dl.textContent = "";
@@ -84,12 +88,21 @@
     var l = left(it);
     card.classList.toggle("done", l === 0);
     card.querySelector(".ring").style.setProperty("--p", ((it.n - l) / it.n * 100).toFixed(1));
-    card.querySelector(".ring span").textContent = l === 0 ? "✓" : l;
+    card.querySelector(".ring span").textContent = l === 0 ? "✓" : (it.k === "task" ? "" : l);
     card.setAttribute("aria-label", "الباقي " + l + " من " + it.n);
   }
 
   function render() {
     if (!data) return;
+    renderBannerData();
+    $("fridayNote").hidden = !(new Date().getDay() === 5 && data.cats.some(function (c) { return c.id === "friday"; }) && location.hash !== "#friday");
+    var isQ = location.hash === "#qibla";
+    $("adhkarView").hidden = isQ; $("qiblaView").hidden = !isQ;
+    if (isQ) {
+      renderChips("qibla");
+      $("addForm").hidden = true; $("editBar").hidden = !editing;
+      return;
+    }
     var cat = currentCat();
     var catObj = data.cats.filter(function (c) { return c.id === cat; })[0];
     renderChips(cat);
@@ -110,7 +123,7 @@
       src.appendChild(el("b", null, it.g || ""));
       src.appendChild(document.createTextNode(it.s ? " · " + it.s : ""));
       var cnt = el("div", "count");
-      cnt.appendChild(el("span", "lbl", it.n > 1 ? "× " + it.n : "مرة"));
+      cnt.appendChild(el("span", it.k === "task" ? "lbl task" : "lbl", it.k === "task" ? (left(it) === 0 ? "تمّت" : "سُنّة") : (it.n > 1 ? "× " + it.n : "مرة")));
       var ring = el("div", "ring"); ring.appendChild(el("span")); cnt.appendChild(ring);
       foot.appendChild(src); foot.appendChild(cnt);
       card.appendChild(foot);
@@ -133,6 +146,7 @@
         if (l === 0) return;
         prog.left[it.id] = l - 1; saveProg();
         cardState(card, it); updateProgress(items);
+        if (it.k === "task") { var lb = card.querySelector(".lbl"); if (lb) lb.textContent = "تمّت"; }
         try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
         if (l - 1 === 0) {
           var next = card.nextElementSibling;
@@ -295,6 +309,109 @@
     });
   });
 
+  // ---------- Quran banner: a new ayah on every open and every 5 minutes ----------
+  var AYAH_MS = 5 * 60 * 1000, ayahIdx = -1, ayahStart = 0, ayahList = null;
+  function renderBannerData() {
+    var list = data && data.ayat;
+    if (!list || !list.length) { $("hero").hidden = true; return; }
+    if (ayahList === list.length) return;
+    ayahList = list.length;
+    $("hero").hidden = false;
+    nextAyah(false);
+  }
+  function nextAyah(animate) {
+    var list = data.ayat, last = parseInt(lsGet("azkar-last-ayah") || "-1", 10), i;
+    do { i = Math.floor(Math.random() * list.length); } while (list.length > 1 && (i === ayahIdx || i === last));
+    ayahIdx = i; lsSet("azkar-last-ayah", String(i)); ayahStart = Date.now();
+    var a = list[i], hero = $("hero");
+    function show() {
+      $("ayahText").textContent = a.t;
+      $("ayahRef").textContent = "سورة " + a.r + " · الآية " + a.a;
+      $("ayahLink").href = "https://quran.com/" + a.s + "/" + a.a;
+      hero.classList.remove("fade");
+    }
+    if (animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) { hero.classList.add("fade"); setTimeout(show, 400); }
+    else show();
+  }
+  $("ayahNext").addEventListener("click", function () { nextAyah(true); });
+  setInterval(function () {
+    if ($("hero").hidden || ayahIdx < 0) return;
+    var t = Date.now() - ayahStart;
+    if (t >= AYAH_MS) { nextAyah(true); t = 0; }
+    $("ayahTimer").style.width = (t / AYAH_MS * 100).toFixed(2) + "%";
+  }, 1000);
+
+  // ---------- Qibla ----------
+  var KAABA = { lat: 21.422487, lon: 39.826206 };
+  var qibla = null, heading = null, wasAligned = false, compassOn = false;
+  function rad(d) { return d * Math.PI / 180; }
+  function deg(r) { return r * 180 / Math.PI; }
+  function computeQibla(lat, lon) {
+    var p1 = rad(lat), p2 = rad(KAABA.lat), dl = rad(KAABA.lon - lon);
+    var b = deg(Math.atan2(Math.sin(dl), Math.cos(p1) * Math.tan(p2) - Math.sin(p1) * Math.cos(dl)));
+    var a = Math.sin((p2 - p1) / 2) * Math.sin((p2 - p1) / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+    return { bearing: (b + 360) % 360, km: 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) };
+  }
+  function drawQibla() {
+    if (!qibla) return;
+    var h = heading == null ? 0 : heading;
+    $("dial").style.transform = "rotate(" + (-h) + "deg)";
+    $("kaabaArm").style.transform = "rotate(" + (qibla.bearing + 180) + "deg)";
+    var box = document.querySelector(".qibla");
+    if (heading == null) {
+      box.classList.remove("aligned");
+      $("qStatus").textContent = "البوصلة غير متاحة: وجّه أعلى الجوال نحو الشمال، ثم استدر " + Math.round(qibla.bearing) + "° باتجاه عقارب الساعة.";
+      return;
+    }
+    var diff = ((qibla.bearing - heading + 540) % 360) - 180;
+    var aligned = Math.abs(diff) <= 5;
+    box.classList.toggle("aligned", aligned);
+    $("qStatus").textContent = aligned ? "أنت الآن باتجاه القبلة" : (diff > 0 ? "استدر يمينًا " : "استدر يسارًا ") + Math.round(Math.abs(diff)) + "°";
+    if (aligned && !wasAligned) { try { if (navigator.vibrate) navigator.vibrate(40); } catch (e) {} }
+    wasAligned = aligned;
+  }
+  function setPosition(lat, lon) {
+    qibla = computeQibla(lat, lon);
+    $("qBearing").textContent = Math.round(qibla.bearing) + "°";
+    $("qDist").textContent = Math.round(qibla.km).toLocaleString("ar") + " كم";
+    drawQibla();
+  }
+  function onOrient(e) {
+    var h = null;
+    if (typeof e.webkitCompassHeading === "number") h = e.webkitCompassHeading;
+    else if (e.absolute && typeof e.alpha === "number") h = 360 - e.alpha;
+    if (h == null) return;
+    var so = (screen.orientation && screen.orientation.angle) || 0;
+    heading = (h + so + 360) % 360;
+    drawQibla();
+  }
+  function startCompass() {
+    if (compassOn) return;
+    compassOn = true;
+    if ("ondeviceorientationabsolute" in window) window.addEventListener("deviceorientationabsolute", onOrient);
+    else window.addEventListener("deviceorientation", onOrient);
+    setTimeout(function () { if (heading == null) drawQibla(); }, 2500);
+  }
+  try { var lastPos = JSON.parse(lsGet("azkar-pos") || "null"); if (lastPos) setPosition(lastPos.lat, lastPos.lon); } catch (e) {}
+  $("qStart").addEventListener("click", function () {
+    var DOE = window.DeviceOrientationEvent;
+    var perm = DOE && typeof DOE.requestPermission === "function" ? DOE.requestPermission().catch(function () { return "denied"; }) : Promise.resolve("granted");
+    startCompass();
+    perm.then(function (state) {
+      if (state !== "granted" && heading == null) $("qStatus").textContent = "لم يُسمح باستخدام البوصلة. أغلق التطبيق وافتحه ثم اضغط «ابدأ» واختر «سماح».";
+    });
+    if (!navigator.geolocation) { $("qStatus").textContent = "تحديد الموقع غير مدعوم على هذا الجهاز."; return; }
+    $("qStatus").textContent = "جارٍ تحديد موقعك…";
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      var c = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      lsSet("azkar-pos", JSON.stringify(c));
+      setPosition(c.lat, c.lon);
+      $("qStart").textContent = "تحديث الموقع";
+    }, function () {
+      $("qStatus").textContent = qibla ? "تعذّر تحديث الموقع، يُستخدم آخر موقع محفوظ." : "تعذّر تحديد موقعك. اسمح للتطبيق بالوصول إلى الموقع ثم اضغط «ابدأ».";
+    }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+  });
+
   window.addEventListener("hashchange", render);
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") { checkDay(); if (!editing) fetchShared(false); }
@@ -305,6 +422,12 @@
   fetchShared(false);
 
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+    var hadController = !!navigator.serviceWorker.controller, reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (hadController && !reloaded && !editing) { reloaded = true; location.reload(); }
+    });
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").then(function (reg) { reg.update(); }).catch(function () {});
+    });
   }
 })();
