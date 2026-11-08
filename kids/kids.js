@@ -67,6 +67,7 @@
       }
     }, function () {
       if (!times) $("nextTxt").textContent = "اطلب من بابا أو ماما السماح للتطبيق بمعرفة الموقع لنعرف أوقات الصلاة.";
+      showPushState();
     }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
   }
 
@@ -346,7 +347,27 @@
   function u8(b) { var s = atob(b.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((b.length + 3) % 4)), o = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) o[i] = s.charCodeAt(i); return o; }
   var syncT = null;
   function syncPush() { clearTimeout(syncT); syncT = setTimeout(doSync, 1200); }
+  // What stops reminders from reaching this phone, if anything, shown to the child with the fix.
+  var pushResult = "";
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  function pushState() {
+    if (isIOS && !standalone) return { cls: "warn", text: "لتصلك التذكيرات: افتح هذه الصفحة في Safari، ثم زر المشاركة ⬆️، ثم «إضافة إلى الشاشة الرئيسية»، وافتح «صلاتي» من الأيقونة." };
+    if (!("Notification" in window) || !("PushManager" in window) || !navigator.serviceWorker) return { cls: "warn", text: "هذا المتصفح لا يدعم التذكيرات. افتح التطبيق في Safari على الآيفون أو Chrome على الأندرويد." };
+    if (Notification.permission === "default") return null; // the "تفعيل" card handles this
+    if (Notification.permission === "denied") return { cls: "warn", text: "التذكيرات مرفوضة. افتح إعدادات الجوال ← الإشعارات ← «صلاتي» ← السماح بالإشعارات، ثم افتح التطبيق من جديد." };
+    if (!place) return { cls: "warn", text: "اسمح لـ«صلاتي» بمعرفة الموقع لنعرف أوقات الصلاة ونرسل التذكير في وقته (الإعدادات ← الخصوصية ← خدمات الموقع)." };
+    if (pushResult === "fail") return { cls: "warn", text: "تعذّر تفعيل التذكير. تأكد من الإنترنت ثم أغلق التطبيق وافتحه." };
+    if (pushResult === "ok") return { cls: "ok", text: "✓ التذكير مفعّل على هذا الجوال" };
+    return { cls: "", text: "جارٍ تفعيل التذكير…" };
+  }
+  function showPushState() {
+    var st = pushState(), box = $("pushState");
+    if (!st) { box.hidden = true; return; }
+    box.hidden = false; box.className = "push-state " + st.cls; box.textContent = st.text;
+  }
   function doSync() {
+    showPushState();
     if (!place || !("PushManager" in window) || !("Notification" in window) || Notification.permission !== "granted" || !navigator.serviceWorker) return;
     var reg;
     navigator.serviceWorker.ready.then(function (r) { reg = r; return fetch(PUSH + "/vapid").then(function (x) { return x.json(); }); })
@@ -363,7 +384,8 @@
         lsSet("kids-push-ep", sub.endpoint);
         return fetch(PUSH + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mode: "kids", device: device, name: linkedName(), sub: sub.toJSON(), lat: place.lat, lon: place.lon, tz: tz, method: method(), hanafi: hanafi(), marks: { day: dayKey(), done: doneToday() } }) });
-      }).catch(function () {});
+      }).then(function (r) { pushResult = r && r.ok ? "ok" : "fail"; showPushState(); })
+      .catch(function () { pushResult = "fail"; showPushState(); });
   }
   function sendMarks() {
     var tz = "UTC"; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) {}
@@ -371,7 +393,10 @@
     if (place) { body.lat = place.lat; body.lon = place.lon; body.tz = tz; body.method = method(); body.hanafi = hanafi(); }
     fetch(PUSH + "/mark", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(function () {});
   }
-  function syncAsk() { $("ask").hidden = !("Notification" in window && Notification.permission === "default"); }
+  function syncAsk() {
+    $("ask").hidden = !("Notification" in window && Notification.permission === "default" && !(isIOS && !standalone));
+    showPushState();
+  }
   $("askBtn").addEventListener("click", function () {
     unlock();
     if (!("Notification" in window)) return;
