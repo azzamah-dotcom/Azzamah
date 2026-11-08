@@ -500,23 +500,29 @@
   $("celebOk").addEventListener("click", function () { $("celebrate").hidden = true; });
   $("celebrate").addEventListener("click", function (e) { if (e.target === $("celebrate")) $("celebrate").hidden = true; });
 
-  var hapticLabel = null;
   function buzz() { haptic([90, 60, 90], 2); }
-  // pattern: Android vibration in ms; taps: how many haptic taps on iPhone.
-  function haptic(pattern, taps) {
-    try { if (navigator.vibrate && navigator.vibrate(pattern)) return; } catch (e) {}
+  // iPhone (iOS 18+): Safari gives a haptic tap when a switch control is toggled by a tap.
+  // A hidden switch is created and clicked during the user's own tap, then removed.
+  function iosTap() {
     try {
-      if (!hapticLabel) {
-        hapticLabel = document.createElement("label");
-        hapticLabel.setAttribute("aria-hidden", "true");
-        hapticLabel.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none";
-        var sw = document.createElement("input");
-        sw.type = "checkbox"; sw.setAttribute("switch", ""); sw.tabIndex = -1;
-        hapticLabel.appendChild(sw);
-        document.body.appendChild(hapticLabel);
-      }
-      for (var i = 0; i < taps; i++) setTimeout(function () { hapticLabel.click(); }, i * 140);
+      var label = document.createElement("label");
+      label.setAttribute("aria-hidden", "true");
+      label.style.display = "none";
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.setAttribute("switch", "");
+      label.appendChild(input);
+      document.head.appendChild(label);
+      label.click();
+      document.head.removeChild(label);
     } catch (e) {}
+  }
+  // pattern: Android vibration in ms; taps: how many haptic taps on iPhone.
+  // The first iPhone tap happens immediately, inside the tap that triggered it.
+  function haptic(pattern, taps) {
+    try { if (typeof navigator.vibrate === "function" && navigator.vibrate(pattern)) return; } catch (e) {}
+    iosTap();
+    for (var i = 1; i < taps; i++) setTimeout(iosTap, i * 120);
   }
 
   function locate() {
@@ -799,6 +805,10 @@
   }
   $("notifYes").addEventListener("click", askNotif);
   $("nPerm").addEventListener("click", askNotif);
+  $("vTest").addEventListener("click", function () {
+    haptic([70, 50, 70], 2);
+    toast(typeof navigator.vibrate === "function" ? "يجب أن يهتز الجوال الآن" : "يجب أن تشعر بنقرتين خفيفتين (iOS 18 أو أحدث)");
+  });
   $("nTest").addEventListener("click", function () {
     unlockAudio();
     setTimeout(function () { fireAlert({ id: "test", kind: "adhan", title: "تجربة التنبيه", body: "هكذا سيظهر تنبيه الأذان عند دخول وقت الصلاة.", url: "#times" }); }, 150);
