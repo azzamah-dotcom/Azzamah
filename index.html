@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>حصن الأذكار</title>
+<meta name="description" content="أذكار وأدعية من القرآن الكريم والسنة الصحيحة مع عدّاد">
+<meta name="theme-color" content="#0f5c4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="الأذكار">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#eef1ec;--paper:#fbfcf9;--ink:#1b2a24;--muted:#5d6e66;--line:#d5ddd6;
+  --accent:#0f5c4a;--accent-soft:#dcebe4;--gold:#9a7a2c;--done:#e6ebe7;--danger:#a8322a;
+  --f-text:"Amiri","Traditional Arabic","Times New Roman",serif;
+  --f-ui:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1714;--paper:#16211d;--ink:#e3ebe6;--muted:#93a49b;--line:#26352f;
+  --accent:#5fc3a3;--accent-soft:#1d3a31;--gold:#d2b066;--done:#121b18;--danger:#ef7b70;color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+[hidden]{display:none!important}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 64px}
+
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+header.top h1{font-family:var(--f-text);font-size:2rem;margin:0;line-height:1.2}
+header.top p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
+.tools{display:flex;gap:8px;align-items:center}
+button{font:inherit;cursor:pointer;color:inherit}
+.btn{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:7px 14px;font-size:.85rem;font-weight:500}
+.btn.primary{background:var(--accent);color:var(--paper);border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.icon-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--paper);display:grid;place-items:center;padding:0}
+.icon-btn svg{width:20px;height:20px;stroke:var(--ink)}
+.btn:focus-visible,.card:focus-visible,.chip:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin-top:14px;padding-block:10px;border-bottom:1px solid var(--line)}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:7px 14px;font-size:.9rem;white-space:nowrap;text-decoration:none}
+.chip[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+
+.progress{display:flex;align-items:center;gap:12px;margin:16px 0 6px}
+.bar{flex:1;height:6px;border-radius:6px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.progress span{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums;min-width:4.5em;text-align:left}
+.cat-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:6px}
+.cat-head h2{font-family:var(--f-text);font-size:1.6rem;margin:0}
+.linkbtn{background:none;border:0;color:var(--accent);font-size:.85rem;padding:4px}
+
+.list{display:flex;flex-direction:column;gap:14px;margin-top:14px}
+.card{position:relative;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px 20px 14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:background .2s,opacity .2s,transform .08s}
+.card:active{transform:scale(.993)}
+.card .txt{font-family:var(--f-text);font-size:1.38rem;line-height:2.05;margin:0;white-space:pre-line}
+.card .note{color:var(--muted);font-size:.85rem;margin:10px 0 0;line-height:1.7}
+.card footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.src{font-size:.8rem;color:var(--muted);line-height:1.6;min-width:0}
+.src b{color:var(--gold);font-weight:600}
+.count{flex:none;display:flex;align-items:center;gap:8px}
+.count .lbl{font-size:.75rem;color:var(--muted)}
+.ring{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:1.05rem;font-variant-numeric:tabular-nums;color:var(--accent);
+  background:conic-gradient(var(--accent) calc(var(--p,0)*1%),var(--accent-soft) 0)}
+.ring span{width:40px;height:40px;border-radius:50%;background:var(--paper);display:grid;place-items:center}
+.card.done{background:var(--done);opacity:.62}
+.card.done .ring span{background:var(--accent);color:var(--paper)}
+.del{position:absolute;top:10px;left:10px;border:1px solid var(--danger);color:var(--danger);background:var(--paper);border-radius:999px;font-size:.8rem;padding:3px 10px}
+.card.removed{opacity:.35}
+.card.removed .del{background:var(--danger);color:var(--paper)}
+.empty{background:var(--paper);border:1px dashed var(--line);border-radius:14px;padding:28px;text-align:center;color:var(--muted)}
+
+.editbar{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom,0px));margin-top:20px;background:var(--paper);border:1px solid var(--accent);border-radius:14px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;box-shadow:0 6px 24px rgb(0 0 0 / .12)}
+.editbar span{font-size:.88rem}
+.panel{margin-top:16px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px}
+.panel h3{margin:0;font-size:1rem}
+.panel p{margin:0;color:var(--muted);font-size:.85rem;line-height:1.7}
+.panel label{display:grid;gap:4px;font-size:.82rem;color:var(--muted)}
+.panel textarea,.panel input,.panel select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%}
+.panel textarea{font-family:var(--f-text);font-size:1.15rem;min-height:110px;line-height:1.8}
+.panel input[dir="ltr"]{text-align:left}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:480px){.row{grid-template-columns:1fr}.card .txt{font-size:1.25rem}}
+.msg{font-size:.85rem;min-height:1em}
+.msg.err{color:var(--danger)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.88rem;z-index:20}
+.foot{margin-top:28px;color:var(--muted);font-size:.8rem;line-height:1.8}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>حصن الأذكار</h1>
+      <p>اضغط على الذكر ليُنقص العداد حتى يكتمل</p>
+    </div>
+    <div class="tools">
+      <button class="btn" id="editBtn" type="button" hidden>تعديل</button>
+      <button class="icon-btn" id="settingsBtn" type="button" aria-label="الإعدادات">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="panel" id="settings" hidden>
+    <h3>الإعدادات</h3>
+    <p>هذا القسم لمشرف القائمة فقط. بعد إدخال المفتاح يظهر زر «تعديل»، وأي تغيير تحفظه يصل إلى جوالات العائلة تلقائيًا خلال دقيقة أو دقيقتين.</p>
+    <label for="sRepo">المستودع على GitHub
+      <input id="sRepo" dir="ltr" placeholder="owner/repo" autocomplete="off">
+    </label>
+    <label for="sToken">مفتاح GitHub (Fine-grained token بصلاحية Contents: Read and write)
+      <input id="sToken" dir="ltr" type="password" autocomplete="off" placeholder="github_pat_...">
+    </label>
+    <div class="msg" id="sMsg"></div>
+    <div class="tools">
+      <button class="btn primary" id="sSave" type="button">حفظ</button>
+      <button class="btn" id="sClear" type="button">إزالة المفتاح</button>
+      <button class="btn" id="sRefresh" type="button">تحديث القائمة الآن</button>
+    </div>
+  </section>
+
+  <nav class="rail" aria-label="الأقسام"><div class="chips" id="chips"></div></nav>
+
+  <div class="progress"><div class="bar"><i id="barFill"></i></div><span id="progTxt">0 / 0</span></div>
+  <div class="cat-head"><h2 id="catTitle">جارٍ التحميل…</h2><button class="linkbtn" id="resetBtn" type="button">إعادة العداد</button></div>
+
+  <div class="list" id="list"></div>
+
+  <form class="panel" id="addForm" hidden>
+    <h3>إضافة ذكر أو دعاء</h3>
+    <label for="fText">النص
+      <textarea id="fText" required></textarea>
+    </label>
+    <div class="row">
+      <label for="fCount">عدد المرات
+        <input id="fCount" type="number" inputmode="numeric" min="1" max="1000" value="1" required>
+      </label>
+      <label for="fCat">القسم (اختر أو اكتب اسم قسم جديد)
+        <input id="fCat" list="catList" required>
+        <datalist id="catList"></datalist>
+      </label>
+    </div>
+    <div class="row">
+      <label for="fSrc">المصدر
+        <input id="fSrc" placeholder="مثال: صحيح مسلم 2723">
+      </label>
+      <label for="fGrade">الدرجة
+        <select id="fGrade"><option>صحيح</option><option>حسن</option><option>قرآن</option></select>
+      </label>
+    </div>
+    <label for="fNote">فضل أو ملاحظة (اختياري)
+      <input id="fNote">
+    </label>
+    <div class="msg err" id="addMsg"></div>
+    <div><button class="btn primary" type="submit">أضف إلى القائمة</button></div>
+  </form>
+
+  <div class="editbar" id="editBar" hidden>
+    <span id="pendTxt"></span>
+    <div class="tools">
+      <button class="btn" id="cancelBtn" type="button">إلغاء</button>
+      <button class="btn primary" id="saveBtn" type="button">حفظ للجميع</button>
+    </div>
+  </div>
+
+  <p class="foot">الأذكار مأخوذة من القرآن الكريم ومن الأحاديث الصحيحة والحسنة، مع ذكر المصدر ودرجة الحديث تحت كل ذكر. العداد يُحفظ على جهازك ويُصفَّر تلقائيًا كل يوم. يعمل التطبيق دون إنترنت بعد فتحه أول مرة.</p>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
