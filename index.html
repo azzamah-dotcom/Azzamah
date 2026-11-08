@@ -124,6 +124,32 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .hero-timer{height:2px;background:rgb(255 255 255 / .12);border-radius:2px;margin-top:12px;overflow:hidden}
 .hero-timer i{display:block;height:100%;width:0;background:#d6b468}
 .hero.fade .hero-ayah{opacity:0}
+.next-prayer{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"label label left" "name time left";align-items:center;column-gap:10px;margin-top:12px;
+  background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:10px 14px;text-decoration:none;color:var(--ink)}
+.np-label{grid-area:label;font-size:.72rem;color:var(--muted)}
+.np-name{grid-area:name;font-family:var(--f-text);font-size:1.35rem;font-weight:700;color:var(--accent)}
+.np-time{grid-area:time;font-size:1rem;font-variant-numeric:tabular-nums}
+.np-left{grid-area:left;font-size:1.1rem;font-weight:600;font-variant-numeric:tabular-nums;direction:ltr;color:var(--gold)}
+.pt{margin-top:14px;background:var(--paper);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.pt-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 18px;
+  background:radial-gradient(120% 160% at 100% 0%,#1d7a62 0%,#0d4a3c 60%,#082f27 100%);color:#f4efe0}
+.pt-head>div{display:grid;gap:2px;min-width:0}
+.pt-head b{font-size:1.05rem}
+.pt-head span{font-size:.8rem;color:#cfe0d8}
+.pt-next{text-align:left;justify-items:end}
+.pt-next span{color:#d6b468!important}
+.pt-next b{font-size:1.5rem;font-variant-numeric:tabular-nums;direction:ltr}
+.pt-list{list-style:none;margin:0;padding:6px 0}
+.pt-list li{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line)}
+.pt-list li:last-child{border-bottom:0}
+.pt-list .n{font-family:var(--f-text);font-size:1.25rem}
+.pt-list .t{font-size:1.1rem;font-weight:600;font-variant-numeric:tabular-nums}
+.pt-list li.sun{color:var(--muted)}
+.pt-list li.sun .n{font-size:1.05rem}
+.pt-list li.past{color:var(--muted)}
+.pt-list li.next{background:var(--accent-soft);color:var(--accent)}
+.pt-list li.next .n::after{content:" · القادمة";font-family:var(--f-ui);font-size:.75rem;font-weight:600}
+.pt-note{margin:0;padding:12px 18px 16px;color:var(--muted);font-size:.78rem;line-height:1.8;border-top:1px solid var(--line)}
 .friday-note{display:block;margin-top:12px;background:var(--accent-soft);color:var(--accent);border-radius:12px;padding:10px 14px;font-size:.88rem;font-weight:500;text-decoration:none;line-height:1.7}
 .card .lbl.task{color:var(--gold)}
 
@@ -192,6 +218,14 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
     <label for="sToken">مفتاح GitHub (Fine-grained token بصلاحية Contents: Read and write)
       <input id="sToken" dir="ltr" type="password" autocomplete="off" placeholder="github_pat_...">
     </label>
+    <div class="row">
+      <label for="sMethod">طريقة حساب أوقات الصلاة
+        <select id="sMethod"><option value="auto">تلقائي حسب البلد</option></select>
+      </label>
+      <label for="sAsr">حساب العصر
+        <select id="sAsr"><option value="auto">تلقائي</option><option value="std">الجمهور (ظل المثل)</option><option value="hanafi">الحنفي (ظل المثلين)</option></select>
+      </label>
+    </div>
     <div class="msg" id="sMsg"></div>
     <div class="tools">
       <button class="btn primary" id="sSave" type="button">حفظ</button>
@@ -210,6 +244,13 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
     <div class="hero-timer"><i id="ayahTimer"></i></div>
   </section>
 
+  <a class="next-prayer" id="nextPrayer" href="#times" hidden>
+    <span class="np-label">الصلاة القادمة</span>
+    <span class="np-name" id="npName"></span>
+    <span class="np-time" id="npTime"></span>
+    <span class="np-left" id="npLeft"></span>
+  </a>
+
   <a class="friday-note" id="fridayNote" href="#friday" hidden>اليوم الجمعة: لا تنسَ سورة الكهف، والصلاة على النبي ﷺ، وساعة الإجابة بعد العصر ←</a>
 
   <nav class="rail" aria-label="الأقسام"><div class="chips" id="chips"></div></nav>
@@ -219,6 +260,18 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
     <div class="cat-head"><h2 id="catTitle">جارٍ التحميل…</h2><button class="reset-btn" id="resetBtn" type="button" aria-label="إعادة العداد" title="إعادة العداد"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.4 5.7"/><path d="M20 4v7h-7"/></svg></button></div>
     <div class="list" id="list"></div>
   </div>
+
+  <section id="prayerView" hidden>
+    <div class="cat-head"><h2>أوقات الصلاة</h2></div>
+    <div class="pt">
+      <div class="pt-head">
+        <div><b id="ptCity">موقعك</b><span id="ptDate"></span></div>
+        <div class="pt-next"><span id="ptNextName">—</span><b id="ptCountdown">--:--:--</b></div>
+      </div>
+      <ol class="pt-list" id="ptList"></ol>
+      <p class="pt-note" id="ptMethod"></p>
+    </div>
+  </section>
 
   <section id="qiblaView" hidden>
     <div class="cat-head"><h2>اتجاه القبلة</h2></div>
@@ -291,6 +344,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
   <a class="btn primary sh-read" id="shLink" href="https://quran.com" target="_blank" rel="noopener">اقرأ من هذا الموضع في المصحف</a>
 </section>
 <div class="toast" id="toast" hidden></div>
+<script src="prayer.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

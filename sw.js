@@ -1,7 +1,7 @@
 // Offline support: app files are served from cache and refreshed in the background;
 // the adhkar list (azkar.json) is fetched fresh when online and falls back to cache offline.
-var CACHE = "azkar-v5";
-var SHELL = ["./", "index.html", "app.js", "azkar.json", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
+var CACHE = "azkar-v6";
+var SHELL = ["./", "index.html", "prayer.js", "app.js", "azkar.json", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL.map(function (u) { return new Request(u, { cache: "reload" }); })); }).then(function () { return self.skipWaiting(); }));
@@ -17,7 +17,7 @@ self.addEventListener("fetch", function (e) {
   var req = e.request;
   if (req.method !== "GET") return;
   var url = new URL(req.url);
-  if (url.hostname === "api.github.com") return;
+  if (url.hostname === "api.github.com" || url.hostname === "api.bigdatacloud.net") return;
 
   if (url.origin === location.origin && url.pathname.endsWith("/azkar.json")) {
     e.respondWith(fetch(req).then(function (res) {

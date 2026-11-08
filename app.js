@@ -67,6 +67,10 @@
       a.setAttribute("aria-current", c.id === cat ? "true" : "false");
       chipsEl.appendChild(a);
     });
+    var pr = el("a", "chip", "أوقات الصلاة");
+    pr.href = "#times";
+    pr.setAttribute("aria-current", cat === "times" ? "true" : "false");
+    chipsEl.appendChild(pr);
     var q = el("a", "chip", "القبلة");
     q.href = "#qibla";
     q.setAttribute("aria-current", cat === "qibla" ? "true" : "false");
@@ -96,11 +100,14 @@
     if (!data) return;
     renderBannerData();
     $("fridayNote").hidden = !(new Date().getDay() === 5 && data.cats.some(function (c) { return c.id === "friday"; }) && location.hash !== "#friday");
-    var isQ = location.hash === "#qibla";
-    $("adhkarView").hidden = isQ; $("qiblaView").hidden = !isQ;
-    if (isQ) {
-      renderChips("qibla");
-      openQibla();
+    var view = location.hash === "#qibla" ? "qibla" : location.hash === "#times" ? "times" : "adhkar";
+    $("adhkarView").hidden = view !== "adhkar";
+    $("qiblaView").hidden = view !== "qibla";
+    $("prayerView").hidden = view !== "times";
+    $("nextPrayer").hidden = view === "times" || !ptTimes;
+    if (view !== "adhkar") {
+      renderChips(view);
+      if (view === "qibla") openQibla(); else { locate(); renderPrayer(); }
       $("addForm").hidden = true; $("editBar").hidden = !editing;
       return;
     }
@@ -476,6 +483,7 @@
       var c = { lat: pos.coords.latitude, lon: pos.coords.longitude };
       lsSet("azkar-pos", JSON.stringify(c));
       setPosition(c.lat, c.lon);
+      setPrayerPlace(c.lat, c.lon);
     }, function () {
       locating = false;
       if (!qibla) $("qStatus").textContent = "تعذّر تحديد موقعك. اسمح للتطبيق بالوصول إلى الموقع من إعدادات الجوال.";
@@ -518,6 +526,119 @@
     lastTouch = now;
   }, { passive: false });
 
+  // ---------- Prayer times ----------
+  var PC = window.PrayerCalc;
+  var PNAMES = { fajr: "الفجر", sunrise: "الشروق", dhuhr: "الظهر", asr: "العصر", maghrib: "المغرب", isha: "العشاء" };
+  var place = null, ptTimes = null, ptDay = "", lastLocate = 0;
+  try { place = JSON.parse(lsGet("azkar-place") || "null"); } catch (e) {}
+
+  function ptMethod() {
+    var m = lsGet("azkar-pt-method") || "auto";
+    if (m !== "auto" && PC.METHODS[m]) return m;
+    return (place && place.cc && PC.COUNTRY[place.cc]) || "mwl";
+  }
+  function ptHanafi() {
+    var a = lsGet("azkar-pt-asr") || "auto";
+    if (a === "auto") return !!(place && place.cc && PC.HANAFI[place.cc]);
+    return a === "hanafi";
+  }
+  function fmtTime(d) {
+    var h = d.getHours(), m = d.getMinutes();
+    return (h % 12 || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "ص" : "م");
+  }
+  function fmtLeft(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); s = s % 60;
+    return h + ":" + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+  function computeTimes() {
+    if (!place || !PC) { ptTimes = null; return; }
+    var now = new Date();
+    ptDay = todayStr();
+    var today = PC.compute(now, place.lat, place.lon, ptMethod(), ptHanafi());
+    var tom = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    ptTimes = { today: today, tomorrowFajr: PC.compute(tom, place.lat, place.lon, ptMethod(), ptHanafi()).fajr };
+  }
+  function nextPrayer() {
+    var now = Date.now(), order = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+    for (var i = 0; i < order.length; i++) if (ptTimes.today[order[i]].getTime() > now) return { key: order[i], at: ptTimes.today[order[i]] };
+    return { key: "fajr", at: ptTimes.tomorrowFajr, tomorrow: true };
+  }
+  function renderPrayer() {
+    if (ptDay !== todayStr()) computeTimes();
+    if (!ptTimes) {
+      $("ptCity").textContent = "جارٍ تحديد موقعك…";
+      $("ptList").textContent = "";
+      $("ptMethod").textContent = "تُحسب الأوقات حسب موقعك. اسمح للتطبيق بالوصول إلى الموقع.";
+      $("nextPrayer").hidden = true;
+      return;
+    }
+    var nx = nextPrayer(), now = Date.now();
+    $("ptCity").textContent = place.city || "موقعك الحالي";
+    var dateTxt = "";
+    try {
+      dateTxt = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", { day: "numeric", month: "long", year: "numeric" }).format(new Date()) +
+        " · " + new Intl.DateTimeFormat("ar-u-nu-latn", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+    } catch (e) {}
+    $("ptDate").textContent = dateTxt;
+    var list = $("ptList"); list.textContent = "";
+    ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"].forEach(function (k) {
+      var li = el("li"), at = ptTimes.today[k];
+      if (k === "sunrise") li.classList.add("sun");
+      if (!nx.tomorrow && k === nx.key) li.classList.add("next");
+      else if (at.getTime() <= now) li.classList.add("past");
+      if (nx.tomorrow && k === "fajr") li.classList.add("next");
+      var name = k === "dhuhr" && new Date().getDay() === 5 ? "الجمعة" : PNAMES[k];
+      li.appendChild(el("span", "n", name));
+      li.appendChild(el("span", "t", fmtTime(k === "fajr" && nx.tomorrow ? ptTimes.tomorrowFajr : at)));
+      list.appendChild(li);
+    });
+    var m = PC.METHODS[ptMethod()];
+    $("ptMethod").textContent = "طريقة الحساب: " + m.name + " · العصر: " + (ptHanafi() ? "الحنفي" : "الجمهور") +
+      ". قد تختلف الأوقات دقيقة أو دقيقتين عن تقويم مسجدك، ويمكن تغيير الطريقة من الإعدادات ⚙️.";
+    tickPrayer();
+  }
+  function tickPrayer() {
+    if (!ptTimes) return;
+    if (ptDay !== todayStr()) { renderPrayer(); return; }
+    var nx = nextPrayer(), left = nx.at.getTime() - Date.now();
+    if (left <= 0) { renderPrayer(); return; }
+    var name = nx.key === "dhuhr" && new Date().getDay() === 5 ? "الجمعة" : PNAMES[nx.key];
+    $("npName").textContent = name;
+    $("npTime").textContent = fmtTime(nx.at);
+    $("npLeft").textContent = fmtLeft(left);
+    $("ptNextName").textContent = name + " بعد";
+    $("ptCountdown").textContent = fmtLeft(left);
+    $("nextPrayer").hidden = location.hash === "#times";
+  }
+  function setPrayerPlace(lat, lon) {
+    var moved = !place || Math.abs(place.lat - lat) > 0.05 || Math.abs(place.lon - lon) > 0.05;
+    place = { lat: lat, lon: lon, cc: place && !moved ? place.cc : "", city: place && !moved ? place.city : "" };
+    lsSet("azkar-place", JSON.stringify(place));
+    computeTimes(); renderPrayer();
+    if (moved || !place.cc) {
+      // City name and country (to pick the right calculation method); the times work without it.
+      fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=ar")
+        .then(function (r) { return r.json(); })
+        .then(function (g) {
+          place.cc = (g.countryCode || "").toUpperCase();
+          place.city = [g.city || g.locality, g.countryName].filter(Boolean).join("، ");
+          lsSet("azkar-place", JSON.stringify(place));
+          computeTimes(); renderPrayer();
+        }).catch(function () {});
+    }
+  }
+  // Settings: calculation method and Asr
+  (function () {
+    var sel = $("sMethod");
+    Object.keys(PC.METHODS).forEach(function (k) { var o = el("option", null, PC.METHODS[k].name); o.value = k; sel.appendChild(o); });
+    sel.value = lsGet("azkar-pt-method") || "auto";
+    $("sAsr").value = lsGet("azkar-pt-asr") || "auto";
+    sel.addEventListener("change", function () { lsSet("azkar-pt-method", sel.value); computeTimes(); renderPrayer(); toast("تم تحديث أوقات الصلاة"); });
+    $("sAsr").addEventListener("change", function () { lsSet("azkar-pt-asr", $("sAsr").value); computeTimes(); renderPrayer(); toast("تم تحديث أوقات الصلاة"); });
+  })();
+  computeTimes();
+  setInterval(tickPrayer, 1000);
+
   window.addEventListener("hashchange", render);
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") { checkDay(); if (!editing) fetchShared(false); }
@@ -526,6 +647,8 @@
   if (saved) { data = clone(saved); render(); }
   syncAdminUi();
   fetchShared(false);
+  renderPrayer();
+  locate();
 
   if ("serviceWorker" in navigator) {
     var hadController = !!navigator.serviceWorker.controller, reloaded = false;
