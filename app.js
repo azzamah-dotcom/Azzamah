@@ -865,6 +865,33 @@
     }).catch(function () { pushOk = false; });
   }
 
+  // ---------- font size (for easier reading) ----------
+  var FS = [{ v: 0.9, n: "صغير" }, { v: 1, n: "عادي" }, { v: 1.15, n: "كبير" }, { v: 1.3, n: "كبير جدًا" }, { v: 1.5, n: "ضخم" }];
+  function curFs() { var v = parseFloat(lsGet("azkar-fs")); return v > 0.8 && v < 1.8 ? v : 1; }
+  function applyFs(v) {
+    var root = document.documentElement;
+    root.style.fontSize = (16 * v) + "px";
+    root.classList.toggle("fs-l", v > 1.05 && v < 1.3);
+    root.classList.toggle("fs-xl", v >= 1.3);
+    var f = FS.filter(function (x) { return x.v === v; })[0];
+    $("fsName").textContent = f ? f.n : "";
+    [].forEach.call($("fsSteps").children, function (b) { b.setAttribute("aria-checked", parseFloat(b.dataset.v) === v ? "true" : "false"); });
+  }
+  FS.forEach(function (f) {
+    var b = el("button", "fs-step", "أ");
+    b.type = "button"; b.dataset.v = f.v; b.setAttribute("role", "radio"); b.setAttribute("aria-label", f.n);
+    b.style.fontSize = (14 + (f.v - 0.9) * 30) + "px";
+    b.addEventListener("click", function () { lsSet("azkar-fs", String(f.v)); applyFs(f.v); });
+    $("fsSteps").appendChild(b);
+  });
+  applyFs(curFs());
+  $("fsBtn").addEventListener("click", function () {
+    var open = $("fsPanel").hidden;
+    $("fsPanel").hidden = !open;
+    $("fsBtn").setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) $("settings").hidden = true;
+  });
+
   window.addEventListener("hashchange", render);
   // Coming back after 10+ minutes away: reload so the latest version (and any list edits) show up.
   var hiddenAt = 0;
