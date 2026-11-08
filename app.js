@@ -163,8 +163,14 @@
         prog.left[it.id] = l - 1; saveProg();
         cardState(card, it); updateProgress(items);
         if (it.k === "task") { var lb = card.querySelector(".lbl"); if (lb) lb.textContent = "تمّت"; }
-        try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
-        if (l - 1 === 0) {
+        var finished = l - 1 === 0;
+        var allDone = finished && items.every(function (x) { return left(x) === 0; });
+        // Light tap for each count, a double pulse when a dhikr is finished, a longer one when the section is done.
+        if (allDone) haptic([120, 70, 120, 70, 260], 3);
+        else if (finished) haptic([70, 50, 70], 2);
+        else haptic(25, 1);
+        if (allDone) setTimeout(function () { celebrate(catObj); }, 350);
+        if (finished && !allDone) {
           var next = card.nextElementSibling;
           while (next && next.classList.contains("done")) next = next.nextElementSibling;
           if (next && next.classList.contains("card")) {
@@ -464,9 +470,41 @@
 
   // Vibration when facing the Qibla. Android supports navigator.vibrate; iPhone (iOS 18+) gives a
   // haptic tap when a switch control is toggled, so a hidden switch is used there.
+  // ---------- celebration when a whole section is finished ----------
+  var CHEERS = ["تقبّل الله منك", "جعلها الله في ميزان حسناتك", "ذكرت الله فذكرك", "حصّنت يومك بذكر الله"];
+  function celebrate(cat) {
+    $("celebTitle").textContent = "ما شاء الله! أتممت " + cat.name;
+    $("celebBody").textContent = CHEERS[Math.floor(Math.random() * CHEERS.length)] + " 🤍";
+    $("celebrate").hidden = false;
+    $("celebOk").focus();
+    chime(2);
+    var c = $("confetti");
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !c.getContext) return;
+    var ctx = c.getContext("2d"), W = c.width = innerWidth, H = c.height = innerHeight, parts = [];
+    var cols = ["#d6b468", "#0f5c4a", "#5fc3a3", "#f4efe0", "#9a7a2c"];
+    for (var i = 0; i < 150; i++) parts.push({ x: Math.random() * W, y: -20 - Math.random() * H * 0.6, r: 3 + Math.random() * 5, vy: 2 + Math.random() * 3.2, vx: -1.5 + Math.random() * 3, a: Math.random() * 6, star: i % 4 === 0, col: cols[i % cols.length] });
+    c.hidden = false;
+    var start = performance.now();
+    (function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      parts.forEach(function (p) {
+        p.x += p.vx; p.y += p.vy; p.a += 0.08;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.fillStyle = p.col;
+        if (p.star) { ctx.beginPath(); for (var k = 0; k < 8; k++) { var rr = k % 2 ? p.r * 0.45 : p.r * 1.3, an = k * Math.PI / 4; ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } ctx.closePath(); ctx.fill(); }
+        else ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+        ctx.restore();
+      });
+      if (t - start < 3800) requestAnimationFrame(frame); else { ctx.clearRect(0, 0, W, H); c.hidden = true; }
+    })(start);
+  }
+  $("celebOk").addEventListener("click", function () { $("celebrate").hidden = true; });
+  $("celebrate").addEventListener("click", function (e) { if (e.target === $("celebrate")) $("celebrate").hidden = true; });
+
   var hapticLabel = null;
-  function buzz() {
-    try { if (navigator.vibrate && navigator.vibrate([90, 60, 90])) return; } catch (e) {}
+  function buzz() { haptic([90, 60, 90], 2); }
+  // pattern: Android vibration in ms; taps: how many haptic taps on iPhone.
+  function haptic(pattern, taps) {
+    try { if (navigator.vibrate && navigator.vibrate(pattern)) return; } catch (e) {}
     try {
       if (!hapticLabel) {
         hapticLabel = document.createElement("label");
@@ -477,8 +515,7 @@
         hapticLabel.appendChild(sw);
         document.body.appendChild(hapticLabel);
       }
-      hapticLabel.click();
-      setTimeout(function () { hapticLabel.click(); }, 150);
+      for (var i = 0; i < taps; i++) setTimeout(function () { hapticLabel.click(); }, i * 140);
     } catch (e) {}
   }
 

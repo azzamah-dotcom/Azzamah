@@ -213,6 +213,16 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .sheet p{margin:0;line-height:1.95;font-size:.98rem}
 .sheet .sh-src{margin-top:18px;font-size:.78rem;color:var(--muted)}
 .sh-read{display:block;text-align:center;text-decoration:none;margin-top:14px;padding:11px}
+.celebrate{position:fixed;inset:0;z-index:45;display:grid;place-items:center;background:rgb(8 30 24 / .55);padding:20px}
+.celeb-box{background:var(--paper);border-radius:24px;padding:26px 22px 22px;max-width:360px;width:100%;text-align:center;box-shadow:0 20px 50px rgb(0 0 0 / .3);animation:celebIn .45s cubic-bezier(.2,1.5,.4,1)}
+@keyframes celebIn{from{transform:scale(.75);opacity:0}}
+.celeb-star{width:84px;height:84px;animation:spinIn 1.2s ease-out}
+@keyframes spinIn{from{transform:rotate(-120deg) scale(.4)}}
+.celeb-box h3{font-family:var(--f-text);font-size:1.6rem;margin:10px 0 4px;color:var(--accent);text-wrap:balance}
+.celeb-box p{margin:0 0 16px;color:var(--muted);line-height:1.7}
+.celeb-box .btn{padding:10px 26px;font-size:1rem}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:46}
+@media (prefers-reduced-motion:reduce){.celeb-box,.celeb-star{animation:none}}
 .foot{margin-top:28px;color:var(--muted);font-size:.8rem;line-height:1.8}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -394,6 +404,15 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
   <p class="sh-src">التفسير مختصر بتصرّف اعتمادًا على التفسير الميسّر وتفسير ابن كثير والسعدي.</p>
   <a class="btn primary sh-read" id="shLink" href="https://quran.com" target="_blank" rel="noopener">اقرأ من هذا الموضع في المصحف</a>
 </section>
+<div class="celebrate" id="celebrate" hidden role="dialog" aria-modal="true" aria-labelledby="celebTitle">
+  <div class="celeb-box">
+    <svg class="celeb-star" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4l7 16 17-6-6 17 16 7-16 7 6 17-17-6-7 16-7-16-17 6 6-17-16-7 16-7-6-17 17 6z" fill="#d6b468"/><circle cx="32" cy="32" r="10" fill="#0f5c4a"/><circle cx="32" cy="32" r="5" fill="#d6b468"/></svg>
+    <h3 id="celebTitle"></h3>
+    <p id="celebBody"></p>
+    <button class="btn primary" id="celebOk" type="button">الحمد لله</button>
+  </div>
+</div>
+<canvas id="confetti" aria-hidden="true" hidden></canvas>
 <div class="toast" id="toast" hidden></div>
 <script src="prayer.js"></script>
 <script src="app.js"></script>
