@@ -59,15 +59,23 @@
     return e;
   }
 
+  // Short chip names so every section fits in two rows without scrolling.
+  function chipLabel(c) {
+    if (c.short) return c.short;
+    if (c.id === "quran") return "أدعية قرآنية";
+    return c.name.replace(/^أذكار\s+/, "").replace(/^يوم\s+/, "");
+  }
   function renderChips(cat) {
     chipsEl.textContent = "";
     data.cats.forEach(function (c) {
-      var a = el("a", "chip", c.name);
+      var a = el("a", "chip", chipLabel(c));
+      a.title = c.name;
       a.href = "#" + c.id;
       a.setAttribute("aria-current", c.id === cat ? "true" : "false");
       chipsEl.appendChild(a);
     });
-    var pr = el("a", "chip", "أوقات الصلاة");
+    var pr = el("a", "chip", "المواقيت");
+    pr.title = "أوقات الصلاة";
     pr.href = "#times";
     pr.setAttribute("aria-current", cat === "times" ? "true" : "false");
     chipsEl.appendChild(pr);
@@ -76,7 +84,7 @@
     q.setAttribute("aria-current", cat === "qibla" ? "true" : "false");
     chipsEl.appendChild(q);
     var cur = chipsEl.querySelector('[aria-current="true"]');
-    if (cur) cur.scrollIntoView({ block: "nearest", inline: "center" });
+    chipsEl.style.setProperty("--cols", Math.min(6, Math.ceil(chipsEl.children.length / 2)));
     var dl = $("catList"); dl.textContent = "";
     data.cats.forEach(function (c) { var o = el("option"); o.value = c.name; dl.appendChild(o); });
   }
