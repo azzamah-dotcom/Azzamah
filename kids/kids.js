@@ -58,6 +58,7 @@
       place = { lat: lat, lon: lon, cc: place && !moved ? place.cc : "" };
       lsSet("kids-place", JSON.stringify(place));
       computeTimes(); render(); syncPush();
+      if (linkedName() && (moved || lsGet("kids-loc-sent") !== dayKey())) { lsSet("kids-loc-sent", dayKey()); sendMarks(); }
       if (moved || !place.cc) {
         fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=ar")
           .then(function (r) { return r.json(); })
@@ -84,7 +85,7 @@
     var st = $("stars"); st.innerHTML = "";
     for (var i = 0; i < 5; i++) { var w = el("span", i < n ? "on" : "off"); w.innerHTML = STAR; st.appendChild(w.firstChild); st.lastChild.setAttribute("class", i < n ? "on" : "off"); }
     $("countTxt").textContent = n === 5 ? "ما شاء الله! صليت كل صلواتك اليوم" : n === 0 ? "هل صليت اليوم؟" : "صليت " + n + " من 5 اليوم";
-    var h = new Date().getHours(), nm = lsGet("kids-name") || "بطل";
+    var h = new Date().getHours(), nm = linkedName() || "بطل";
     $("greet").textContent = (h < 12 ? "صباح الخير يا " : "مساء الخير يا ") + nm;
     try {
       $("dateTxt").textContent = new Intl.DateTimeFormat("ar-u-nu-latn", { weekday: "long" }).format(new Date()) + " · " +
@@ -191,31 +192,88 @@
     saveLog(); render(); sendMarks();
   }
 
-  // ---------- the child's name ----------
-  function askName() {
-    $("nameInput").value = lsGet("kids-name") || "";
-    $("namePop").hidden = false;
-    setTimeout(function () { $("nameInput").focus(); }, 50);
+  // ---------- which child is this? (linked with a 6-digit code from the parent dashboard) ----------
+  var device = lsGet("kids-device");
+  if (!device) {
+    var rb = crypto.getRandomValues(new Uint8Array(16)), bs = "";
+    for (var ri = 0; ri < rb.length; ri++) bs += String.fromCharCode(rb[ri]);
+    device = btoa(bs).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    lsSet("kids-device", device);
   }
-  $("greet").addEventListener("click", askName);
-  $("nameForm").addEventListener("submit", function (e) {
+  function linkedName() { return lsGet("kids-linked") || ""; }
+  function post(path, body) {
+    return fetch(PUSH + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j._status = r.status; return j; }); });
+  }
+  // The family server's record wins for past days; today's marks from both sides are combined.
+  function mergeHist(hist) {
+    var today = dayKey(), changed = false;
+    Object.keys(hist || {}).forEach(function (d) {
+      var server = hist[d] || [], local = log[d] || [];
+      var merged = d === today ? local.concat(server.filter(function (k) { return local.indexOf(k) < 0; })) : server.slice();
+      if (merged.join() !== local.join()) { log[d] = merged; changed = true; }
+    });
+    if (changed) { saveLog(); render(); }
+    var srv = (hist || {})[today] || [];
+    if (doneToday().some(function (k) { return srv.indexOf(k) < 0; })) sendMarks();
+  }
+  function openLink() {
+    var nm = linkedName();
+    $("linkMsg").textContent = "";
+    $("codeInput").value = "";
+    if (nm) {
+      $("linkBig").textContent = "👋";
+      $("linkTitle").textContent = "أنت " + nm;
+      $("linkText").textContent = "صلواتك تظهر عند بابا باسم «" + nm + "». إن لم يكن هذا اسمك، اكتب رمزك الصحيح.";
+      $("linkBtn").textContent = "تغيير";
+      $("linkLater").textContent = "حسنًا";
+    } else {
+      $("linkBig").textContent = "🔗";
+      $("linkTitle").textContent = "اطلب من بابا رمز الربط";
+      $("linkText").textContent = "اكتب الرمز المكوّن من 6 أرقام لنعرف من أنت، وتظهر صلواتك عند بابا.";
+      $("linkBtn").textContent = "ربط";
+      $("linkLater").textContent = "ليس الآن";
+    }
+    $("linkPop").hidden = false;
+    setTimeout(function () { $("codeInput").focus(); }, 50);
+  }
+  $("greet").addEventListener("click", openLink);
+  $("linkLater").addEventListener("click", function () { $("linkPop").hidden = true; lsSet("kids-link-later", dayKey()); });
+  $("codeInput").addEventListener("input", function () { $("codeInput").value = $("codeInput").value.replace(/\D/g, "").slice(0, 6); });
+  $("linkForm").addEventListener("submit", function (e) {
     e.preventDefault();
-    var nm = $("nameInput").value.replace(/[<>]/g, "").trim().slice(0, 24);
-    if (!nm) return;
-    lsSet("kids-name", nm);
-    $("namePop").hidden = true;
-    renderHeader();
-    var ep = lsGet("kids-push-ep");
-    if (ep) fetch(PUSH + "/kid/name", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: ep, name: nm }) }).catch(function () {});
+    var code = $("codeInput").value;
+    if (code.length !== 6) { $("linkMsg").textContent = "الرمز 6 أرقام"; return; }
+    $("linkBtn").disabled = true;
+    post("/kid/link", { device: device, code: code, marks: { day: dayKey(), done: doneToday() } }).then(function (j) {
+      $("linkBtn").disabled = false;
+      if (j.name) {
+        lsSet("kids-linked", j.name);
+        $("linkPop").hidden = true;
+        mergeHist(j.hist);
+        renderHeader();
+        sendMarks();
+        syncPush();
+        popup("🎉", "أهلًا يا " + j.name, "تم الربط! صلواتك ستظهر عند بابا من الآن.");
+        chime(2);
+        return;
+      }
+      $("linkMsg").textContent = j._status === 429 ? "محاولات كثيرة، جرّب بعد " + (j.wait || 15) + " دقيقة" : "الرمز غير صحيح، تأكد منه مع بابا";
+    }).catch(function () { $("linkBtn").disabled = false; $("linkMsg").textContent = "لا يوجد إنترنت، حاول لاحقًا"; });
   });
-  // A name set by the parent from the dashboard wins.
-  function pullName() {
-    var ep = lsGet("kids-push-ep");
-    if (!ep) return;
-    fetch(PUSH + "/kid/info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: ep }) })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { if (j && j.name && j.name !== lsGet("kids-name")) { lsSet("kids-name", j.name); renderHeader(); } })
-      .catch(function () {});
+  // On every open: get this child's name and history (or learn that the link was removed).
+  function pullInfo() {
+    post("/kid/info", { device: device }).then(function (j) {
+      if (j._status !== 200) return;
+      if (j.linked) {
+        if (j.name !== linkedName()) { lsSet("kids-linked", j.name); renderHeader(); }
+        mergeHist(j.hist);
+      } else if (linkedName()) {
+        lsSet("kids-linked", ""); renderHeader(); openLink();
+      } else if (lsGet("kids-link-later") !== dayKey()) {
+        openLink();
+      }
+    }).catch(function () {});
   }
 
   // ---------- popups, sound, confetti ----------
@@ -304,14 +362,14 @@
         var tz = "UTC"; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) {}
         lsSet("kids-push-ep", sub.endpoint);
         return fetch(PUSH + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "kids", name: lsGet("kids-name") || "", sub: sub.toJSON(), lat: place.lat, lon: place.lon, tz: tz, method: method(), hanafi: hanafi(), marks: { day: dayKey(), done: doneToday() } }) });
-      }).then(function () { pullName(); }).catch(function () {});
+          body: JSON.stringify({ mode: "kids", device: device, name: linkedName(), sub: sub.toJSON(), lat: place.lat, lon: place.lon, tz: tz, method: method(), hanafi: hanafi(), marks: { day: dayKey(), done: doneToday() } }) });
+      }).catch(function () {});
   }
   function sendMarks() {
-    var ep = lsGet("kids-push-ep");
-    if (!ep) return;
-    fetch(PUSH + "/mark", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: ep, day: dayKey(), done: doneToday() }) })
-      .catch(function () { syncPush(); });
+    var tz = "UTC"; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) {}
+    var body = { device: device, endpoint: lsGet("kids-push-ep") || "", day: dayKey(), done: doneToday() };
+    if (place) { body.lat = place.lat; body.lon = place.lon; body.tz = tz; body.method = method(); body.hanafi = hanafi(); }
+    fetch(PUSH + "/mark", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(function () {});
   }
   function syncAsk() { $("ask").hidden = !("Notification" in window && Notification.permission === "default"); }
   $("askBtn").addEventListener("click", function () {
@@ -337,11 +395,11 @@
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
     if (hiddenAt && Date.now() - hiddenAt > 600000 && $("pop").hidden && navigator.onLine !== false) { location.reload(); return; }
-    render(); locate();
+    render(); locate(); pullInfo();
   });
   document.addEventListener("gesturestart", function (e) { e.preventDefault(); });
   computeTimes(); render(); syncAsk(); locate();
-  if (!lsGet("kids-name")) setTimeout(askName, 600);
+  setTimeout(pullInfo, 500);
   setInterval(tick, 1000);
   setTimeout(syncPush, 3000);
   if ("serviceWorker" in navigator) {

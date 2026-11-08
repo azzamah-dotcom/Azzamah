@@ -17,7 +17,7 @@
   var toastT;
   function toast(m) { var t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 2600); }
 
-  var key = lsGet("parent-key"), hasPin = true, preset = 0, kidsData = [], editing = null;
+  var key = lsGet("parent-key"), hasPin = true, preset = 0, kidsData = [], looseData = [], editing = null, showCode = {};
 
   function api(path, body) {
     var opt = { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json" } };
@@ -93,7 +93,7 @@
   function renderKids() {
     var box = $("kids"); box.textContent = "";
     if (!kidsData.length) {
-      box.appendChild(el("div", "empty", "لا يوجد أولاد مسجّلون بعد. ثبّت تطبيق «صلاتي» على جوال كل ولد من الرابط azzamah-dotcom.github.io/Azzamah/kids واضغط «تفعيل» فيه."));
+      box.appendChild(el("div", "empty", "أضف أولادك بالاسم من الخانة في الأعلى. سيظهر لكل ولد رمز ربط من 6 أرقام يكتبه في تطبيق «صلاتي» على جواله."));
       $("sendAll").disabled = true;
       return;
     }
@@ -115,16 +115,38 @@
         setTimeout(function () { inp.focus(); }, 30);
       } else {
         who.appendChild(el("h2", "kid-name", k.name || "بدون اسم"));
-        who.appendChild(el("div", "kid-sub", seenText(k.seen)));
+        who.appendChild(el("div", "kid-sub", !k.devices ? "لم يُربط أي جهاز بعد" :
+          (k.devices === 1 ? "جهاز واحد" : k.devices === 2 ? "جهازان" : k.devices + " أجهزة") + (k.seen ? " · " + seenText(k.seen) : "") + (k.notify ? "" : " · التذكير غير مفعّل")));
       }
-      var score = el("div", "score", k.done.length + " ");
+      var score = el("div", "score", (k.devices ? k.done.length : "–") + " ");
       score.appendChild(el("small", null, "من 5 اليوم"));
       top.appendChild(who); top.appendChild(score);
       card.appendChild(top);
 
+      // link code: shown until a device is linked, then on demand
+      if (!k.devices || showCode[k.id]) {
+        var cd = el("div", "code"), cdText = el("div");
+        cdText.appendChild(el("span", null, "رمز الربط لـ " + (k.name || "الولد")));
+        cdText.appendChild(document.createElement("br"));
+        cdText.appendChild(el("b", null, k.code.slice(0, 3) + " " + k.code.slice(3)));
+        var tools = el("div", "tools");
+        var cp = el("button", "btn", "نسخ"); cp.type = "button";
+        cp.addEventListener("click", function () {
+          var done = function () { toast("نُسخ الرمز"); };
+          if (navigator.clipboard) navigator.clipboard.writeText(k.code).then(done).catch(function () { toast(k.code); }); else toast(k.code);
+        });
+        var nc = el("button", "btn", "رمز جديد"); nc.type = "button";
+        nc.addEventListener("click", function () { api("/parent/newcode", { id: k.id }).then(function () { load(); toast("أُنشئ رمز جديد، والرمز القديم لم يعد يعمل"); }); });
+        tools.appendChild(cp); tools.appendChild(nc);
+        cd.appendChild(cdText); cd.appendChild(tools);
+        card.appendChild(cd);
+        if (!k.devices) card.appendChild(el("div", "hint", "على جوال " + (k.name || "الولد") + ": افتح تطبيق «صلاتي»، واكتب هذا الرمز. يمكن ربط أكثر من جهاز بنفس الرمز (جوال وآيباد)."));
+      }
+
       // today's five prayers
       var grid = el("div", "prayers");
       ORDER.forEach(function (p, i) {
+        if (!k.times) { var c0 = el("div", "p" + (k.done.indexOf(p) >= 0 ? " done" : "")); c0.appendChild(el("b", null, NAMES[p])); c0.appendChild(el("span", null, k.done.indexOf(p) >= 0 ? "صلّاها ✓" : "—")); grid.appendChild(c0); return; }
         var t = k.times[p], next = i < 4 ? k.times[ORDER[i + 1]] : t + 150 * 60000;
         var st = k.done.indexOf(p) >= 0 ? "done" : now < t ? "wait" : now < next ? "now" : "miss";
         var label = { done: "صلّاها ✓", wait: fmtTime(t, k.tz), now: "الآن", miss: "فاتته" }[st];
@@ -151,25 +173,59 @@
       var acts = el("div", "kid-actions");
       var nudge = el("button", "btn primary", "📣 ذكّره بالصلاة"); nudge.type = "button";
       nudge.addEventListener("click", function () { send([k.id], nudge); });
+      if (!k.notify) nudge.disabled = true;
       var ren = el("button", "btn", "تغيير الاسم"); ren.type = "button";
       ren.addEventListener("click", function () { editing = editing === k.id ? null : k.id; renderKids(); });
-      var rm = el("button", "link", "حذف"); rm.type = "button";
+      var sc = el("button", "btn", showCode[k.id] ? "إخفاء الرمز" : "رمز الربط"); sc.type = "button";
+      sc.addEventListener("click", function () { showCode[k.id] = !showCode[k.id]; renderKids(); });
+      var rm = el("button", "link", "حذف " + (k.name || "الولد")); rm.type = "button";
       rm.addEventListener("click", function () {
-        if (rm.dataset.sure) { api("/parent/remove", { id: k.id }).then(function () { load(); toast("حُذف الجهاز"); }); }
-        else { rm.dataset.sure = "1"; rm.textContent = "اضغط مرة أخرى للتأكيد"; setTimeout(function () { delete rm.dataset.sure; rm.textContent = "حذف"; }, 4000); }
+        if (rm.dataset.sure) { api("/parent/removekid", { id: k.id }).then(function () { load(); toast("حُذف " + (k.name || "الولد") + " وتوقفت تذكيراته"); }); }
+        else { rm.dataset.sure = "1"; rm.textContent = "اضغط مرة أخرى لحذف " + (k.name || "الولد"); setTimeout(function () { delete rm.dataset.sure; rm.textContent = "حذف " + (k.name || "الولد"); }, 4000); }
       });
-      acts.appendChild(nudge); acts.appendChild(ren); acts.appendChild(rm);
+      acts.appendChild(nudge); if (k.devices) acts.appendChild(sc); acts.appendChild(ren); acts.appendChild(rm);
       card.appendChild(acts);
       box.appendChild(card);
     });
   }
+
+  function renderLoose() {
+    var box = $("looseList"); box.textContent = "";
+    $("loose").hidden = !looseData.length;
+    looseData.forEach(function (d) {
+      var row = el("div", "dev");
+      row.appendChild(el("b", null, (d.name ? "جهاز باسم «" + d.name + "»" : "جهاز بدون اسم") + (d.seen ? " · " + seenText(d.seen) : "")));
+      if (d.canLink && kidsData.length) {
+        var sel = el("select"); sel.setAttribute("aria-label", "اربطه بـ");
+        kidsData.forEach(function (k) { var o = el("option", null, k.name); o.value = k.id; sel.appendChild(o); });
+        var lk = el("button", "btn primary", "ربط"); lk.type = "button";
+        lk.addEventListener("click", function () { api("/parent/link", { device: d.id, kidId: sel.value }).then(function (j) { load(); toast(j.ok ? "تم الربط" : "تعذّر الربط"); }); });
+        row.appendChild(sel); row.appendChild(lk);
+      } else if (!d.canLink) {
+        row.appendChild(el("span", "kid-sub", "يحتاج فتح التطبيق مرة ليتحدّث"));
+      }
+      var del = el("button", "link", "حذف"); del.type = "button";
+      del.addEventListener("click", function () { api("/parent/remove", { id: d.id }).then(function () { load(); toast("حُذف الجهاز"); }); });
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+  $("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("addName").value.trim();
+    if (!name) { $("addName").focus(); return; }
+    api("/parent/addkid", { name: name }).then(function (j) {
+      if (j.code) { $("addName").value = ""; showCode[j.id] = true; load(); toast("أُضيف " + name + ". رمزه: " + j.code); }
+      else toast("تعذّرت الإضافة");
+    });
+  });
 
   function send(ids, btn) {
     btn.disabled = true;
     api("/parent/nudge", { ids: ids, text: messageText() }).then(function (j) {
       btn.disabled = false;
       if (j._status === 401) { lsDel("parent-key"); key = null; showLock(); return; }
-      toast(j.sent ? (j.sent === 1 ? "أُرسل التذكير" : "أُرسل إلى " + j.sent + " أولاد") : "لم يصل التذكير؛ تأكد أن التذكير مفعّل في تطبيق الولد");
+      toast(j.sent ? (j.sent === 1 ? "أُرسل التذكير" : "أُرسل إلى " + j.sent + " أجهزة") : "لم يصل التذكير؛ تأكد أن التذكير مفعّل في تطبيق الولد");
     }).catch(function () { btn.disabled = false; toast("لا يوجد اتصال بالإنترنت"); });
   }
   $("sendAll").addEventListener("click", function () { send("all", $("sendAll")); });
@@ -178,7 +234,8 @@
     return api("/parent/kids").then(function (j) {
       if (j._status === 401) { lsDel("parent-key"); key = null; showLock(); return; }
       kidsData = (j.kids || []).sort(function (a, b) { return (a.name || "").localeCompare(b.name || "", "ar"); });
-      if (editing === null) renderKids();
+      looseData = j.devices || [];
+      if (editing === null) { renderKids(); renderLoose(); }
     }).catch(function () { toast("لا يوجد اتصال بالإنترنت"); });
   }
   function showDash() {

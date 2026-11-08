@@ -34,7 +34,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-ui);font
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
 button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.wrap{max-width:680px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 48px;display:grid;gap:14px}
+.wrap{max-width:680px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 48px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
 header{display:flex;justify-content:space-between;align-items:center;gap:12px}
 header h1{font-family:var(--f-title);font-size:2.1rem;margin:0;line-height:1.2}
 header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
@@ -59,7 +59,7 @@ header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
 .call .send-all{background:#d6b468;color:#2a2108;border:0;border-radius:14px;padding:12px;font-weight:700;font-size:1rem}
 
 .kids{display:grid;gap:12px}
-.kid{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:grid;gap:12px}
+.kid{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
 .kid-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .kid-name{font-family:var(--f-title);font-size:1.6rem;line-height:1.1;margin:0}
 .kid-sub{color:var(--muted);font-size:.8rem}
@@ -85,6 +85,20 @@ header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
 .empty{background:var(--paper);border:1px dashed var(--line);border-radius:18px;padding:22px;text-align:center;color:var(--muted);line-height:1.8}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.88rem;z-index:20;white-space:nowrap}
 .foot{color:var(--muted);font-size:.78rem;text-align:center;line-height:1.8}
+.add{display:flex;gap:8px;margin-top:14px}
+.add input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;background:var(--paper);font-size:16px}
+.kids{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px}
+.code{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--bg);border-radius:12px;padding:10px 12px}
+.code b{display:inline-block;unicode-bidi:isolate;font-size:1.35rem;letter-spacing:.18em;direction:ltr;font-variant-numeric:tabular-nums}
+.code span{font-size:.8rem;color:var(--muted);line-height:1.6}
+.code .tools{display:flex;gap:6px}
+.hint{background:var(--now-soft);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:.84rem;line-height:1.7}
+.loose{margin-top:14px;background:var(--paper);border:1px dashed var(--line);border-radius:18px;padding:14px 16px;display:grid;gap:10px}
+.loose h3{margin:0;font-size:1rem}
+.loose p{margin:0;color:var(--muted);font-size:.84rem;line-height:1.7}
+.dev{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px}
+.dev b{flex:1;min-width:120px}
+.dev select{border:1.5px solid var(--line);border-radius:10px;padding:7px 8px;background:var(--bg);font:inherit;font-size:16px;color:var(--ink)}
 .edit{display:flex;gap:6px}
 .edit input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:7px 10px;background:var(--bg);font-size:16px}
 </style>
@@ -112,7 +126,16 @@ header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
       <input class="custom" id="custom" maxlength="140" placeholder="أو اكتب رسالتك…" aria-label="رسالة مخصصة">
       <button class="send-all" id="sendAll" type="button">📣 أرسل للجميع</button>
     </div>
-    <div class="kids" id="kids" style="margin-top:14px"></div>
+    <form class="add" id="addForm">
+      <input id="addName" maxlength="24" placeholder="اسم الولد، مثل: آدم" aria-label="اسم الولد" autocomplete="off">
+      <button class="btn primary" type="submit">+ إضافة ولد</button>
+    </form>
+    <div class="kids" id="kids"></div>
+    <section class="loose" id="loose" hidden>
+      <h3>أجهزة غير مربوطة</h3>
+      <p>هذه أجهزة فعّلت التذكير قبل ربطها بأحد الأولاد. اربط كل جهاز باسم صاحبه، أو احذفه.</p>
+      <div id="looseList"></div>
+    </section>
     <p class="foot">تتحدّث الصفحة كل دقيقة. «الآن» تعني أن وقت الصلاة دخل ولم يسجّلها بعد، و«فاتته» أن وقت الصلاة التالية دخل.<br><button class="link" id="logout" type="button">خروج من هذا الجهاز</button></p>
   </section>
 </main>

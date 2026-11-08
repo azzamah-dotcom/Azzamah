@@ -229,6 +229,13 @@ async function sendPush(vapid, sub, data) {
 
 // ---------- kids: history, names, and the parent dashboard ----------
 function cleanDone(list) { return (list || []).filter(function (k) { return PNAMES[k]; }).filter(function (k, i, a) { return a.indexOf(k) === i; }); }
+function cleanDevice(d) { d = String(d || ""); return /^[A-Za-z0-9_-]{16,64}$/.test(d) ? d : ""; }
+function newCode(profiles) {
+  let c;
+  do { c = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0"); }
+  while (profiles.some(function (p) { return p.code === c; }));
+  return c;
+}
 function cleanName(n) { return String(n || "").replace(/[<>]/g, "").trim().slice(0, 24); }
 function setHist(s, day, done) {
   s.hist = s.hist || {};
@@ -282,11 +289,11 @@ function localDay(timeZone, utcMs) {
 // Kids app: a reminder at the adhan and every 30 minutes after it, until the child marks the
 // prayer as prayed or the next prayer comes in.
 const KID_NUDGES = ["صلاتك نور ⭐ لا تؤخّرها", "الله يحب من يصلي على الوقت 💚", "قم الآن وتوضأ وصلِّ، ثم سجّل نجمتك ⭐", "أنت بطل، والبطل لا ينسى صلاته 🌟"];
-function kidEventsFor(s, day) {
+function kidEventsFor(s, day, prof) {
   const tz = tzOffsetHours(s.tz, Date.UTC(day.y, day.m, day.d, 12));
   const t = PC.computeFor(day.y, day.m, day.d, tz, s.lat, s.lon, s.method || "mwl", !!s.hanafi);
   const id = day.y + "-" + (day.m + 1) + "-" + day.d;
-  const done = s.marks && s.marks.day === id ? s.marks.done || [] : [];
+  const done = prof ? ((prof.hist || {})[id] || []) : (s.marks && s.marks.day === id ? s.marks.done || [] : []);
   const fri = day.wd === 5;
   const ends = { fajr: t.sunrise, dhuhr: t.asr, asr: t.maghrib, maghrib: t.isha, isha: t.isha + 150 * 60000 };
   const ev = [];
@@ -302,8 +309,8 @@ function kidEventsFor(s, day) {
   return ev;
 }
 
-function eventsFor(s, day) {
-  if (s.mode === "kids") return kidEventsFor(s, day);
+function eventsFor(s, day, prof) {
+  if (s.mode === "kids") return kidEventsFor(s, day, prof);
   const n = Object.assign({}, NDEF, s.n || {});
   n.iq = Object.assign({}, NDEF.iq, (s.n && s.n.iq) || {});
   const tz = tzOffsetHours(s.tz, Date.UTC(day.y, day.m, day.d, 12));
@@ -331,15 +338,17 @@ async function runMinute(env, nowMs) {
   const subs = (await env.SUBS.get("subs", "json")) || [];
   if (!subs.length) return { sent: 0 };
   const vapid = await getVapid(env);
+  const profiles = (await env.SUBS.get("kids", "json")) || [];
   const dead = [];
   let sent = 0;
   for (const s of subs) {
     if (typeof s.lat !== "number" || typeof s.lon !== "number") continue;
+    const prof = s.kidId ? profiles.find(function (p) { return p.id === s.kidId; }) : null;
     // Today and yesterday (a reminder after Isha can fall after midnight).
     const due = [];
     for (const back of [0, 1]) {
       const day = localDay(s.tz || "UTC", nowMs - back * 86400000);
-      for (const e of eventsFor(s, day)) if (Math.floor(e.at / 60000) === minute) due.push(e);
+      for (const e of eventsFor(s, day, prof)) if (Math.floor(e.at / 60000) === minute) due.push(e);
     }
     for (const e of due) {
       try {
@@ -382,50 +391,100 @@ export default {
         city: String(b.city || "").slice(0, 80), n: b.n || {}, updated: Date.now(),
         mode: b.mode === "kids" ? "kids" : "full"
       };
-      if (rec.mode === "kids") { rec.name = cleanName(b.name); rec.seen = Date.now(); }
+      if (rec.mode === "kids") {
+        rec.name = cleanName(b.name); rec.seen = Date.now(); rec.device = cleanDevice(b.device);
+        const profiles = (await env.SUBS.get("kids", "json")) || [];
+        const prof = rec.device ? profiles.find(function (p) { return (p.devices || []).indexOf(rec.device) >= 0; }) : null;
+        rec.kidId = prof ? prof.id : null;
+      }
       if (!isFinite(rec.lat) || !isFinite(rec.lon)) return json({ error: "missing location" }, 400);
       const all = (await env.SUBS.get("subs", "json")) || [];
       const prev = all.find(function (s) { return s.sub.endpoint === rec.sub.endpoint; });
       if (b.marks && typeof b.marks.day === "string") rec.marks = { day: b.marks.day.slice(0, 12), done: cleanDone(b.marks.done) };
       else if (prev && prev.marks) rec.marks = prev.marks;
       if (prev && prev.hist) rec.hist = prev.hist;
-      if (rec.mode === "kids") {
-        if (prev && prev.name && prev.nameByParent) { rec.name = prev.name; rec.nameByParent = true; }
-        if (rec.marks) setHist(rec, rec.marks.day, rec.marks.done);
-      }
+      if (rec.mode === "kids" && rec.marks) setHist(rec, rec.marks.day, rec.marks.done);
       const subs = all.filter(function (s) { return s.sub.endpoint !== rec.sub.endpoint; });
       subs.push(rec);
       await env.SUBS.put("subs", JSON.stringify(subs.slice(-500)));
       return json({ ok: true });
     }
-    // Kids app: which prayers were prayed today (stops that prayer's reminders).
+    // ---------- kids app ----------
+    // Which prayers were prayed today (stops that prayer's reminders and shows in the dashboard).
     if (url.pathname === "/mark" && request.method === "POST") {
       let b = {};
       try { b = await request.json(); } catch (e) { return json({ error: "bad json" }, 400); }
+      const day = String(b.day || "").slice(0, 12), done = cleanDone(b.done), device = cleanDevice(b.device);
+      const profiles = (await env.SUBS.get("kids", "json")) || [];
+      const prof = device ? profiles.find(function (p) { return (p.devices || []).indexOf(device) >= 0; }) : null;
+      if (prof) {
+        setHist(prof, day, done);
+        prof.seen = Date.now();
+        if (isFinite(Number(b.lat)) && isFinite(Number(b.lon)) && b.lat != null) {
+          prof.loc = { lat: Number(b.lat), lon: Number(b.lon), tz: String(b.tz || "UTC").slice(0, 64), method: PC.METHODS[b.method] ? b.method : "mwl", hanafi: !!b.hanafi };
+        }
+        await env.SUBS.put("kids", JSON.stringify(profiles));
+        return json({ ok: true, linked: true });
+      }
+      // Not linked yet: keep today's marks on the device's subscription so its reminders still stop.
       const subs = (await env.SUBS.get("subs", "json")) || [];
-      const s = subs.find(function (x) { return x.sub.endpoint === b.endpoint; });
-      if (!s) return json({ error: "not subscribed" }, 404);
-      s.marks = { day: String(b.day || "").slice(0, 12), done: cleanDone(b.done) };
-      setHist(s, s.marks.day, s.marks.done);
+      const s = subs.find(function (x) { return x.sub.endpoint === b.endpoint || (device && x.device === device); });
+      if (!s) return json({ ok: true, linked: false });
+      s.marks = { day: day, done: done };
       s.seen = Date.now();
       await env.SUBS.put("subs", JSON.stringify(subs));
-      return json({ ok: true });
+      return json({ ok: true, linked: false });
     }
-
-    // Kids app: read or change the child's name (the parent can rename too).
+    // Which child this device belongs to, with their name and recent history.
     if (url.pathname === "/kid/info" && request.method === "POST") {
       let b = {};
       try { b = await request.json(); } catch (e) {}
-      const s = ((await env.SUBS.get("subs", "json")) || []).find(function (x) { return x.sub.endpoint === b.endpoint; });
-      return s ? json({ name: s.name || "" }) : json({ error: "not subscribed" }, 404);
+      const device = cleanDevice(b.device);
+      const prof = device ? ((await env.SUBS.get("kids", "json")) || []).find(function (p) { return (p.devices || []).indexOf(device) >= 0; }) : null;
+      return json(prof ? { linked: true, name: prof.name, hist: prof.hist || {} } : { linked: false });
     }
-    if (url.pathname === "/kid/name" && request.method === "POST") {
+    // Link this device to a child using the 6-digit code from the parent dashboard.
+    if (url.pathname === "/kid/link" && request.method === "POST") {
       let b = {};
       try { b = await request.json(); } catch (e) {}
+      const device = cleanDevice(b.device), code = String(b.code || "").replace(/\D/g, "");
+      if (!device) return json({ error: "missing device" }, 400);
+      const lock = (await env.SUBS.get("linklock", "json")) || { fails: 0, lockUntil: 0 };
+      if (lock.lockUntil && Date.now() < lock.lockUntil) return json({ error: "locked", wait: Math.ceil((lock.lockUntil - Date.now()) / 60000) }, 429);
+      const profiles = (await env.SUBS.get("kids", "json")) || [];
+      const prof = code.length === 6 ? profiles.find(function (p) { return p.code === code; }) : null;
+      if (!prof) {
+        lock.fails = (lock.fails || 0) + 1;
+        if (lock.fails >= 10) { lock.lockUntil = Date.now() + 15 * 60000; lock.fails = 0; }
+        await env.SUBS.put("linklock", JSON.stringify(lock));
+        return json({ error: "wrong code" }, 404);
+      }
+      if (lock.fails) await env.SUBS.put("linklock", JSON.stringify({ fails: 0, lockUntil: 0 }));
+      profiles.forEach(function (p) { p.devices = (p.devices || []).filter(function (d) { return d !== device; }); });
+      prof.devices.push(device);
+      prof.seen = Date.now();
+      // Bring over anything this device recorded before it was linked.
+      if (b.marks && typeof b.marks.day === "string") {
+        const merged = cleanDone(((prof.hist || {})[b.marks.day] || []).concat(b.marks.done || []));
+        setHist(prof, b.marks.day.slice(0, 12), merged);
+      }
+      await env.SUBS.put("kids", JSON.stringify(profiles));
       const subs = (await env.SUBS.get("subs", "json")) || [];
-      const s = subs.find(function (x) { return x.sub.endpoint === b.endpoint; });
-      if (!s) return json({ error: "not subscribed" }, 404);
-      s.name = cleanName(b.name); s.nameByParent = false;
+      let touched = false;
+      subs.forEach(function (x) { if (x.device === device) { x.kidId = prof.id; touched = true; } });
+      if (touched) await env.SUBS.put("subs", JSON.stringify(subs));
+      return json({ ok: true, name: prof.name, hist: prof.hist || {} });
+    }
+    // "This isn't me": unlink this device.
+    if (url.pathname === "/kid/unlink" && request.method === "POST") {
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      const device = cleanDevice(b.device);
+      const profiles = (await env.SUBS.get("kids", "json")) || [];
+      profiles.forEach(function (p) { p.devices = (p.devices || []).filter(function (d) { return d !== device; }); });
+      await env.SUBS.put("kids", JSON.stringify(profiles));
+      const subs = (await env.SUBS.get("subs", "json")) || [];
+      subs.forEach(function (x) { if (device && x.device === device) x.kidId = null; });
       await env.SUBS.put("subs", JSON.stringify(subs));
       return json({ ok: true });
     }
@@ -464,55 +523,107 @@ export default {
     }
     if (url.pathname.indexOf("/parent/") === 0) {
       if (!(await isParent(request, env))) return json({ error: "not allowed" }, 401);
+      let b = {};
+      if (request.method === "POST") { try { b = await request.json(); } catch (e) {} }
       const subs = (await env.SUBS.get("subs", "json")) || [];
-      const kids = subs.filter(function (s) { return s.mode === "kids"; });
+      const profiles = (await env.SUBS.get("kids", "json")) || [];
       const now = Date.now();
+      // Where a child is (for prayer times): their latest report, or one of their devices.
+      function locOf(p) {
+        if (p.loc) return p.loc;
+        const d = subs.filter(function (x) { return x.kidId === p.id; }).sort(function (a, c) { return (c.updated || 0) - (a.updated || 0); })[0];
+        return d ? { lat: d.lat, lon: d.lon, tz: d.tz, method: d.method, hanafi: d.hanafi } : null;
+      }
 
       if (url.pathname === "/parent/kids") {
-        const out = [];
-        for (const s of kids) {
-          const cur = currentPrayer(s, now);
+        const kids = profiles.map(function (p) {
+          const loc = locOf(p), cur = loc ? currentPrayer(loc, now) : null;
+          const day = cur ? cur.day : (function () { const d = new Date(now); return d.getUTCFullYear() + "-" + (d.getUTCMonth() + 1) + "-" + d.getUTCDate(); })();
           const t = {};
-          for (const k of ["fajr", "dhuhr", "asr", "maghrib", "isha"]) t[k] = cur.times[k];
-          out.push({ id: await kidId(s.sub.endpoint), name: s.name || "", today: cur.day, done: (s.hist && s.hist[cur.day]) || [], hist: s.hist || {}, times: t, current: cur.key, tz: s.tz, seen: s.seen || s.updated || 0 });
-        }
-        return json({ kids: out, now: now });
+          if (cur) for (const k of ["fajr", "dhuhr", "asr", "maghrib", "isha"]) t[k] = cur.times[k];
+          const devs = subs.filter(function (x) { return x.kidId === p.id; });
+          return { id: p.id, name: p.name, code: p.code, devices: (p.devices || []).length, notify: devs.length, today: day, done: (p.hist || {})[day] || [],
+            hist: p.hist || {}, times: cur ? t : null, current: cur ? cur.key : null, tz: loc ? loc.tz : null, seen: p.seen || 0 };
+        });
+        const loose = [];
+        for (const x of subs) if (x.mode === "kids" && !x.kidId) loose.push({ id: await kidId(x.sub.endpoint), name: x.name || "", seen: x.seen || x.updated || 0, canLink: !!x.device });
+        return json({ kids: kids, devices: loose, now: now });
+      }
+      if (url.pathname === "/parent/addkid" && request.method === "POST") {
+        const name = cleanName(b.name);
+        if (!name) return json({ error: "missing name" }, 400);
+        if (profiles.length >= 20) return json({ error: "too many" }, 400);
+        const p = { id: b64u(crypto.getRandomValues(new Uint8Array(9))), name: name, code: newCode(profiles), devices: [], hist: {}, created: now, seen: 0 };
+        profiles.push(p);
+        await env.SUBS.put("kids", JSON.stringify(profiles));
+        return json({ ok: true, id: p.id, code: p.code });
+      }
+      if (url.pathname === "/parent/removekid" && request.method === "POST") {
+        const keep = profiles.filter(function (p) { return p.id !== b.id; });
+        if (keep.length === profiles.length) return json({ error: "not found" }, 404);
+        await env.SUBS.put("kids", JSON.stringify(keep));
+        // Stop this child's reminders on all their devices.
+        await env.SUBS.put("subs", JSON.stringify(subs.filter(function (x) { return x.kidId !== b.id; })));
+        return json({ ok: true });
+      }
+      if (url.pathname === "/parent/rename" && request.method === "POST") {
+        const p = profiles.find(function (x) { return x.id === b.id; });
+        if (!p) return json({ error: "not found" }, 404);
+        const name = cleanName(b.name);
+        if (!name) return json({ error: "missing name" }, 400);
+        p.name = name;
+        await env.SUBS.put("kids", JSON.stringify(profiles));
+        return json({ ok: true });
+      }
+      if (url.pathname === "/parent/newcode" && request.method === "POST") {
+        const p = profiles.find(function (x) { return x.id === b.id; });
+        if (!p) return json({ error: "not found" }, 404);
+        p.code = newCode(profiles);
+        await env.SUBS.put("kids", JSON.stringify(profiles));
+        return json({ ok: true, code: p.code });
+      }
+      // Link a device that registered before it was linked (shown under "devices not linked").
+      if (url.pathname === "/parent/link" && request.method === "POST") {
+        const p = profiles.find(function (x) { return x.id === b.kidId; });
+        if (!p) return json({ error: "not found" }, 404);
+        let rec = null;
+        for (const x of subs) if (x.mode === "kids" && (await kidId(x.sub.endpoint)) === b.device) rec = x;
+        if (!rec || !rec.device) return json({ error: "device cannot be linked" }, 400);
+        profiles.forEach(function (q) { q.devices = (q.devices || []).filter(function (d) { return d !== rec.device; }); });
+        p.devices.push(rec.device);
+        if (rec.marks) setHist(p, rec.marks.day, cleanDone(((p.hist || {})[rec.marks.day] || []).concat(rec.marks.done)));
+        subs.forEach(function (x) { if (x.device === rec.device) x.kidId = p.id; });
+        await env.SUBS.put("kids", JSON.stringify(profiles));
+        await env.SUBS.put("subs", JSON.stringify(subs));
+        return json({ ok: true });
+      }
+      // Remove a device that isn't linked to any child.
+      if (url.pathname === "/parent/remove" && request.method === "POST") {
+        const keep = [];
+        for (const x of subs) if (x.mode !== "kids" || x.kidId || (await kidId(x.sub.endpoint)) !== b.id) keep.push(x);
+        await env.SUBS.put("subs", JSON.stringify(keep));
+        return json({ ok: true });
       }
       if (url.pathname === "/parent/nudge" && request.method === "POST") {
-        let b = {};
-        try { b = await request.json(); } catch (e) {}
         const vapid = await getVapid(env);
         const text = String(b.text || "").replace(/[<>]/g, "").trim().slice(0, 140);
         let sent = 0;
-        for (const s of kids) {
-          const id = await kidId(s.sub.endpoint);
-          if (b.ids !== "all" && (!Array.isArray(b.ids) || b.ids.indexOf(id) < 0)) continue;
-          const cur = currentPrayer(s, now);
-          const done = (s.hist && s.hist[cur.day]) || [];
+        for (const x of subs) {
+          if (x.mode !== "kids") continue;
+          if (b.ids !== "all" && (!Array.isArray(b.ids) || b.ids.indexOf(x.kidId) < 0)) continue;
+          const p = x.kidId ? profiles.find(function (q) { return q.id === x.kidId; }) : null;
+          const cur = currentPrayer(p && p.loc ? p.loc : x, now);
+          const done = p ? ((p.hist || {})[cur.day] || []) : (x.marks && x.marks.day === cur.day ? x.marks.done : []);
           const nm = cur.key ? (cur.key === "dhuhr" && cur.fri ? "الجمعة" : PNAMES[cur.key]) : "";
-          const who = s.name ? "يا " + s.name + " " : "";
+          const name = p ? p.name : x.name;
+          const who = name ? "يا " + name + " " : "";
           const body = text || (cur.key && done.indexOf(cur.key) < 0 ? who + "قم صلِّ " + nm + " الآن 🕌" : who + "حافظ على صلاتك، بارك الله فيك 💚");
           try {
-            const r = await sendPush(vapid, s.sub, { title: "📣 رسالة من بابا", body: body, tag: "parent-" + now, url: APP_URL + "kids/" });
+            const r = await sendPush(vapid, x.sub, { title: "📣 رسالة من بابا", body: body, tag: "parent-" + now, url: APP_URL + "kids/" });
             if (r.ok) sent++;
           } catch (e) {}
         }
         return json({ ok: true, sent: sent });
-      }
-      if (url.pathname === "/parent/rename" && request.method === "POST") {
-        let b = {};
-        try { b = await request.json(); } catch (e) {}
-        for (const s of kids) if ((await kidId(s.sub.endpoint)) === b.id) { s.name = cleanName(b.name); s.nameByParent = true; }
-        await env.SUBS.put("subs", JSON.stringify(subs));
-        return json({ ok: true });
-      }
-      if (url.pathname === "/parent/remove" && request.method === "POST") {
-        let b = {};
-        try { b = await request.json(); } catch (e) {}
-        const keep = [];
-        for (const s of subs) if (s.mode !== "kids" || (await kidId(s.sub.endpoint)) !== b.id) keep.push(s);
-        await env.SUBS.put("subs", JSON.stringify(keep));
-        return json({ ok: true });
       }
       return json({ error: "unknown" }, 404);
     }

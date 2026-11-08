@@ -47,6 +47,9 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .greet::after{content:"";width:14px;height:14px;opacity:.7;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 20h4L19 9l-4-4L4 16z' fill='none' stroke='black' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 20h4L19 9l-4-4L4 16z' fill='none' stroke='black' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
 .name-in{width:100%;font:inherit;font-size:1.3rem;text-align:center;border:2px solid var(--line);border-radius:16px;padding:10px;margin-bottom:14px;background:var(--bg);color:var(--ink)}
 .name-in:focus{outline:none;border-color:var(--isha)}
+.code-in{letter-spacing:.35em;direction:ltr;font-size:1.8rem;font-weight:800}
+.link-msg{min-height:1.4em;color:var(--late);font-weight:700;margin:-6px 0 8px}
+#linkForm .undo{display:block;margin:12px auto 0}
 .moon{width:54px;height:54px;border-radius:50%;box-shadow:-12px 6px 0 0 var(--gold);transform:rotate(-20deg);margin-left:10px;flex:none}
 .today{max-width:640px;margin:18px auto 0;text-align:center}
 .stars{display:flex;justify-content:center;gap:8px}
@@ -118,7 +121,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 <header class="sky">
   <canvas id="skyStars" aria-hidden="true"></canvas>
   <div class="hello">
-    <div><h1>صلاتي</h1><button class="greet" id="greet" type="button" aria-label="تغيير الاسم">السلام عليكم يا بطل</button></div>
+    <div><h1>صلاتي</h1><button class="greet" id="greet" type="button" aria-label="من أنا؟">السلام عليكم يا بطل</button></div>
     <div class="moon" aria-hidden="true"></div>
   </div>
   <div class="today">
@@ -150,13 +153,15 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
     <button class="btn" id="popBtn" type="button">حسنًا</button>
   </div>
 </div>
-<div class="pop" id="namePop" hidden role="dialog" aria-modal="true" aria-labelledby="nameTitle">
-  <form class="box" id="nameForm">
-    <div class="big">👋</div>
-    <h3 id="nameTitle">ما اسمك يا بطل؟</h3>
-    <p>سنناديك باسمك في التطبيق وفي التذكير.</p>
-    <input id="nameInput" class="name-in" maxlength="24" autocomplete="off" placeholder="اكتب اسمك هنا" required>
-    <button class="btn" type="submit">حفظ</button>
+<div class="pop" id="linkPop" hidden role="dialog" aria-modal="true" aria-labelledby="linkTitle">
+  <form class="box" id="linkForm">
+    <div class="big" id="linkBig">🔗</div>
+    <h3 id="linkTitle">اطلب من بابا رمز الربط</h3>
+    <p id="linkText">اكتب الرمز المكوّن من 6 أرقام لنعرف من أنت، وتظهر صلواتك عند بابا.</p>
+    <input id="codeInput" class="name-in code-in" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="••••••" aria-label="رمز الربط">
+    <div class="link-msg" id="linkMsg"></div>
+    <button class="btn" id="linkBtn" type="submit">ربط</button>
+    <button class="undo" id="linkLater" type="button">ليس الآن</button>
   </form>
 </div>
 <canvas id="confetti" aria-hidden="true" hidden></canvas>
