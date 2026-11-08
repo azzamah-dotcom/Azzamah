@@ -28,36 +28,59 @@
     });
   }
 
-  // ---------- passcode ----------
+  // ---------- parent account: log in or create one ----------
+  var mode = "login";
+  function setMode(m) {
+    mode = m;
+    $("tabLogin").setAttribute("aria-selected", m === "login" ? "true" : "false");
+    $("tabSignup").setAttribute("aria-selected", m === "signup" ? "true" : "false");
+    $("titleWrap").hidden = m !== "signup";
+    $("pin2Wrap").hidden = m !== "signup";
+    $("lockBtn").textContent = m === "login" ? "دخول" : "إنشاء الحساب";
+    $("lockText").textContent = m === "login" ? "لكل ولي أمر حسابه الخاص، ويرى أولاده فقط." : "أنشئ حسابك لتضيف أولادك وتتابع صلواتهم. لن يرى أحد غيرك أولادك.";
+    $("pin").setAttribute("autocomplete", m === "login" ? "current-password" : "new-password");
+    $("lockMsg").textContent = "";
+  }
+  $("tabLogin").addEventListener("click", function () { setMode("login"); });
+  $("tabSignup").addEventListener("click", function () { setMode("signup"); });
   function showLock() {
     $("dash").hidden = true; $("refresh").hidden = true; $("lock").hidden = false;
-    $("lockMsg").textContent = "";
-    api("/parent/status").then(function (j) {
-      hasPin = !!j.hasPin;
-      $("lockTitle").textContent = hasPin ? "أدخل رمز ولي الأمر" : "أنشئ رمز ولي الأمر";
-      $("lockText").textContent = hasPin ? "هذه الصفحة لولي الأمر فقط." : "اختر رمزًا من 6 أرقام أو أكثر. لن يستطيع أحد غيرك رؤية صلوات الأولاد أو إرسال التذكير بدونه.";
-      $("pin2").hidden = hasPin;
-      $("lockBtn").textContent = hasPin ? "دخول" : "حفظ الرمز";
-      $("pin").focus();
-    }).catch(function () { $("lockMsg").textContent = "لا يوجد اتصال بالإنترنت."; });
+    $("hello").textContent = "صلوات الأولاد اليوم وتذكيرهم بالصلاة";
+    setMode(mode);
+    $("pName").value = lsGet("parent-name") || "";
+    ($("pName").value ? $("pin") : $("pName")).focus();
   }
   function submitPin() {
-    var pin = $("pin").value.trim();
+    var name = $("pName").value.trim(), pin = $("pin").value.trim();
+    if (!name) { $("lockMsg").textContent = "اكتب اسمك."; $("pName").focus(); return; }
     if (!/^\d{6,12}$/.test(pin)) { $("lockMsg").textContent = "الرمز يجب أن يكون من 6 إلى 12 رقمًا."; return; }
-    if (!hasPin && pin !== $("pin2").value.trim()) { $("lockMsg").textContent = "الرمزان غير متطابقين."; return; }
+    if (mode === "signup" && pin !== $("pin2").value.trim()) { $("lockMsg").textContent = "الرمزان غير متطابقين."; return; }
     $("lockBtn").disabled = true;
-    api(hasPin ? "/parent/login" : "/parent/setup", { pin: pin }).then(function (j) {
+    var body = mode === "signup" ? { name: name, pin: pin, title: $("pTitle").value } : { name: name, pin: pin };
+    api(mode === "signup" ? "/parent/signup" : "/parent/login", body).then(function (j) {
       $("lockBtn").disabled = false;
-      if (j.key) { key = j.key; lsSet("parent-key", key); $("pin").value = ""; $("pin2").value = ""; showDash(); return; }
+      if (j.key) {
+        key = j.key; lsSet("parent-key", key); lsSet("parent-name", j.name || name);
+        $("pin").value = ""; $("pin2").value = "";
+        showDash(); return;
+      }
       $("lockMsg").textContent = j._status === 429 ? "محاولات كثيرة. حاول بعد " + (j.wait || 15) + " دقيقة." :
-        j._status === 403 ? "الرمز غير صحيح." : j._status === 409 ? "الرمز موجود مسبقًا، أدخله للدخول." : "تعذّر الدخول، حاول مرة أخرى.";
-      if (j._status === 409) showLock();
+        j._status === 409 ? "هذا الاسم مستخدم. اختر اسمًا آخر، أو ادخل من «دخول» إن كان حسابك." :
+        j._status === 403 ? "الاسم أو الرمز غير صحيح." : "تعذّر الدخول، حاول مرة أخرى.";
     }).catch(function () { $("lockBtn").disabled = false; $("lockMsg").textContent = "لا يوجد اتصال بالإنترنت."; });
   }
   $("lockBtn").addEventListener("click", submitPin);
-  $("pin").addEventListener("keydown", function (e) { if (e.key === "Enter") { if (hasPin) submitPin(); else $("pin2").focus(); } });
-  $("pin2").addEventListener("keydown", function (e) { if (e.key === "Enter") submitPin(); });
-  $("logout").addEventListener("click", function () { lsDel("parent-key"); key = null; showLock(); });
+  ["pName", "pin", "pin2"].forEach(function (id) { $(id).addEventListener("keydown", function (e) { if (e.key === "Enter") submitPin(); }); });
+  $("logout").addEventListener("click", function () { lsDel("parent-key"); key = null; mode = "login"; showLock(); });
+  var myTitle = "بابا";
+  $("titleBtn").addEventListener("click", function () {
+    var opts = ["بابا", "ماما", "جدو", "تيتا", "عمو", "خالة"], next = opts[(opts.indexOf(myTitle) + 1) % opts.length];
+    api("/parent/title", { title: next }).then(function (j) { if (j.title) { myTitle = j.title; showHello(); toast("تصل رسائلك الآن باسم «" + myTitle + "»"); } });
+  });
+  function showHello() {
+    $("hello").textContent = "مرحبًا " + (lsGet("parent-name") || "") + " · رسائلك تصل باسم «" + myTitle + "»";
+    $("sendAll").textContent = "📣 أرسل لكل أولادي";
+  }
 
   // ---------- dashboard ----------
   function renderPresets() {
@@ -241,6 +264,12 @@
   function showDash() {
     $("lock").hidden = true; $("dash").hidden = false; $("refresh").hidden = false;
     renderPresets(); load();
+    api("/parent/me").then(function (j) {
+      if (j._status !== 200) return;
+      myTitle = j.title || "بابا";
+      if (j.name) { lsSet("parent-name", j.name); showHello(); }
+      else $("hello").textContent = "حسابك بدون اسم بعد: اضغط «خروج من هذا الجهاز» في الأسفل، ثم ادخل باسمك ورمزك نفسه.";
+    }).catch(function () {});
   }
   $("refresh").addEventListener("click", function () { load().then(function () { toast("تم التحديث"); }); });
   setInterval(function () { if (key && !$("dash").hidden && document.visibilityState === "visible" && editing === null) load(); }, 60000);

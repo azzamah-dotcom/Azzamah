@@ -48,6 +48,13 @@ header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
 .lock p{margin:0;color:var(--muted);line-height:1.7;max-width:40ch}
 .pin{width:min(260px,100%);text-align:center;font-size:1.6rem;letter-spacing:.3em;border:1.5px solid var(--line);border-radius:14px;padding:10px;background:var(--bg);direction:ltr}
 .msg{min-height:1.2em;font-size:.88rem;color:var(--miss)}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);border-radius:999px;padding:4px;width:min(300px,100%)}
+.tab{border:0;background:none;border-radius:999px;padding:8px;font-weight:600;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--paper);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0 / .12)}
+.fld{display:grid;gap:4px;width:min(300px,100%);text-align:right;font-size:.82rem;color:var(--muted)}
+.fld input,.fld select{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg);font:inherit;font-size:16px;color:var(--ink);width:100%;min-width:0}
+.fld .pin{width:100%}
+.lock .btn.primary{width:min(300px,100%);padding:11px}
 
 .call{background:radial-gradient(120% 160% at 100% 0%,#1d7a62 0%,#0d4a3c 60%,#082f27 100%);color:#f4efe0;border-radius:18px;padding:16px;display:grid;gap:10px}
 .call h2{margin:0;font-size:1.05rem}
@@ -106,15 +113,28 @@ header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
 <body>
 <main class="wrap">
   <header>
-    <div><h1>أولادي</h1><p>صلوات الأولاد اليوم وتذكيرهم بالصلاة</p></div>
+    <div><h1>أولادي</h1><p id="hello">صلوات الأولاد اليوم وتذكيرهم بالصلاة</p></div>
     <button class="btn" id="refresh" type="button" hidden>تحديث</button>
   </header>
 
   <section class="lock" id="lock" hidden>
-    <h2 id="lockTitle">أدخل رمز ولي الأمر</h2>
-    <p id="lockText">هذه الصفحة لولي الأمر فقط.</p>
-    <input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12" aria-label="الرمز">
-    <input class="pin" id="pin2" type="password" inputmode="numeric" autocomplete="off" maxlength="12" aria-label="تأكيد الرمز" placeholder="تأكيد" hidden>
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tabLogin" type="button" role="tab" aria-selected="true">دخول</button>
+      <button class="tab" id="tabSignup" type="button" role="tab" aria-selected="false">حساب جديد</button>
+    </div>
+    <p id="lockText">لكل ولي أمر حسابه الخاص، ويرى أولاده فقط.</p>
+    <label class="fld" for="pName">اسمك
+      <input id="pName" maxlength="24" autocomplete="username" placeholder="مثل: أبو آدم">
+    </label>
+    <label class="fld" for="pTitle" id="titleWrap" hidden>كيف يناديك أولادك؟
+      <select id="pTitle"><option>بابا</option><option>ماما</option><option>جدو</option><option>تيتا</option><option>عمو</option><option>خالة</option></select>
+    </label>
+    <label class="fld" for="pin">الرمز (6 أرقام أو أكثر)
+      <input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12">
+    </label>
+    <label class="fld" for="pin2" id="pin2Wrap" hidden>تأكيد الرمز
+      <input class="pin" id="pin2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="12">
+    </label>
     <div class="msg" id="lockMsg"></div>
     <button class="btn primary" id="lockBtn" type="button">دخول</button>
   </section>
@@ -136,7 +156,7 @@ header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
       <p>هذه أجهزة فعّلت التذكير قبل ربطها بأحد الأولاد. اربط كل جهاز باسم صاحبه، أو احذفه.</p>
       <div id="looseList"></div>
     </section>
-    <p class="foot">تتحدّث الصفحة كل دقيقة. «الآن» تعني أن وقت الصلاة دخل ولم يسجّلها بعد، و«فاتته» أن وقت الصلاة التالية دخل.<br><button class="link" id="logout" type="button">خروج من هذا الجهاز</button></p>
+    <p class="foot">تتحدّث الصفحة كل دقيقة. «الآن» تعني أن وقت الصلاة دخل ولم يسجّلها بعد، و«فاتته» أن وقت الصلاة التالية دخل.<br><button class="link" id="titleBtn" type="button">تغيير «كيف يناديك أولادك»</button> · <button class="link" id="logout" type="button">خروج من هذا الجهاز</button></p>
   </section>
 </main>
 <div class="toast" id="toast" hidden></div>

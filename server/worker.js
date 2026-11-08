@@ -257,10 +257,32 @@ function sameStr(a, b) {
   for (let i = 0; i < a.length; i++) x |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return x === 0;
 }
-async function isParent(request, env) {
-  const p = await env.SUBS.get("parent", "json");
-  return !!(p && p.key && sameStr(request.headers.get("X-Parent-Key") || "", p.key));
+// Parent accounts: each parent has a name, what their kids call them, a passcode, and their own kids.
+function normName(n) { return String(n || "").replace(/\s+/g, " ").trim().toLowerCase(); }
+async function loadParents(env) {
+  let parents = await env.SUBS.get("parents", "json");
+  if (parents) return parents;
+  // First run after the update: the single passcode from before becomes the first account,
+  // and every child added so far belongs to it.
+  parents = [];
+  const old = await env.SUBS.get("parent", "json");
+  if (old && old.hash) {
+    const id = b64u(crypto.getRandomValues(new Uint8Array(9)));
+    parents.push({ id: id, name: "", title: "بابا", salt: old.salt, hash: old.hash, key: old.key, fails: 0, lockUntil: 0, legacy: true, created: Date.now() });
+    const profiles = (await env.SUBS.get("kids", "json")) || [];
+    profiles.forEach(function (p) { if (!p.parentId) p.parentId = id; });
+    await env.SUBS.put("kids", JSON.stringify(profiles));
+  }
+  await env.SUBS.put("parents", JSON.stringify(parents));
+  return parents;
 }
+async function getParent(request, env) {
+  const key = request.headers.get("X-Parent-Key") || "";
+  if (!key) return null;
+  const parents = await loadParents(env);
+  return parents.find(function (p) { return p.key && sameStr(key, p.key); }) || null;
+}
+function cleanTitle(t) { t = String(t || "").replace(/[<>]/g, "").trim().slice(0, 16); return t || "بابا"; }
 // The prayer a child should be praying now (the latest one whose time has come today).
 function currentPrayer(s, nowMs) {
   const day = localDay(s.tz || "UTC", nowMs);
@@ -490,44 +512,64 @@ export default {
     }
 
     // ---------- parent dashboard (protected by the parent passcode) ----------
-    if (url.pathname === "/parent/status") {
-      const p = await env.SUBS.get("parent", "json");
-      return json({ hasPin: !!(p && p.hash) });
-    }
-    if (url.pathname === "/parent/setup" && request.method === "POST") {
+    if (url.pathname === "/parent/signup" && request.method === "POST") {
       let b = {};
       try { b = await request.json(); } catch (e) {}
-      const existing = await env.SUBS.get("parent", "json");
-      if (existing && existing.hash) return json({ error: "already set" }, 409);
-      const pin = String(b.pin || "");
+      const name = cleanName(b.name), pin = String(b.pin || "");
+      if (!name) return json({ error: "missing name" }, 400);
       if (!/^\d{6,12}$/.test(pin)) return json({ error: "pin must be 6-12 digits" }, 400);
+      const parents = await loadParents(env);
+      if (parents.some(function (p) { return normName(p.name) === normName(name); })) return json({ error: "name taken" }, 409);
+      if (parents.length >= 50) return json({ error: "too many" }, 400);
       const salt = b64u(crypto.getRandomValues(new Uint8Array(16)));
-      const key = b64u(crypto.getRandomValues(new Uint8Array(24)));
-      await env.SUBS.put("parent", JSON.stringify({ salt: salt, hash: await pinHash(pin, salt), key: key, fails: 0, lockUntil: 0 }));
-      return json({ key: key });
+      const acc = { id: b64u(crypto.getRandomValues(new Uint8Array(9))), name: name, title: cleanTitle(b.title), salt: salt, hash: await pinHash(pin, salt),
+        key: b64u(crypto.getRandomValues(new Uint8Array(24))), fails: 0, lockUntil: 0, created: Date.now() };
+      parents.push(acc);
+      await env.SUBS.put("parents", JSON.stringify(parents));
+      return json({ key: acc.key, name: acc.name, title: acc.title });
     }
     if (url.pathname === "/parent/login" && request.method === "POST") {
       let b = {};
       try { b = await request.json(); } catch (e) {}
-      const p = await env.SUBS.get("parent", "json");
-      if (!p || !p.hash) return json({ error: "no pin" }, 404);
-      if (p.lockUntil && Date.now() < p.lockUntil) return json({ error: "locked", wait: Math.ceil((p.lockUntil - Date.now()) / 60000) }, 429);
-      if (sameStr(await pinHash(String(b.pin || ""), p.salt), p.hash)) {
-        if (p.fails) { p.fails = 0; p.lockUntil = 0; await env.SUBS.put("parent", JSON.stringify(p)); }
-        return json({ key: p.key });
+      const parents = await loadParents(env);
+      const nm = normName(b.name);
+      let acc = nm ? parents.find(function (p) { return normName(p.name) === nm; }) : null;
+      // The account from before the update has no name yet: its passcode works with any new name.
+      const claim = !acc ? parents.find(function (p) { return p.legacy && !p.name; }) : null;
+      acc = acc || claim;
+      if (!acc) return json({ error: "wrong" }, 403);
+      if (acc.lockUntil && Date.now() < acc.lockUntil) return json({ error: "locked", wait: Math.ceil((acc.lockUntil - Date.now()) / 60000) }, 429);
+      if (sameStr(await pinHash(String(b.pin || ""), acc.salt), acc.hash)) {
+        acc.fails = 0; acc.lockUntil = 0;
+        if (claim) acc.name = cleanName(b.name) || "بابا";
+        await env.SUBS.put("parents", JSON.stringify(parents));
+        return json({ key: acc.key, name: acc.name, title: acc.title });
       }
-      p.fails = (p.fails || 0) + 1;
-      if (p.fails >= 5) { p.lockUntil = Date.now() + 15 * 60000; p.fails = 0; }
-      await env.SUBS.put("parent", JSON.stringify(p));
-      return json({ error: "wrong pin" }, 403);
+      acc.fails = (acc.fails || 0) + 1;
+      if (acc.fails >= 5) { acc.lockUntil = Date.now() + 15 * 60000; acc.fails = 0; }
+      await env.SUBS.put("parents", JSON.stringify(parents));
+      return json({ error: "wrong" }, 403);
     }
     if (url.pathname.indexOf("/parent/") === 0) {
-      if (!(await isParent(request, env))) return json({ error: "not allowed" }, 401);
+      const me = await getParent(request, env);
+      if (!me) return json({ error: "not allowed" }, 401);
       let b = {};
       if (request.method === "POST") { try { b = await request.json(); } catch (e) {} }
       const subs = (await env.SUBS.get("subs", "json")) || [];
       const profiles = (await env.SUBS.get("kids", "json")) || [];
+      const mine = profiles.filter(function (p) { return p.parentId === me.id; });
+      const myIds = mine.map(function (p) { return p.id; });
+      function myKid(id) { return mine.find(function (p) { return p.id === id; }); }
       const now = Date.now();
+
+      if (url.pathname === "/parent/me") return json({ name: me.name, title: me.title });
+      if (url.pathname === "/parent/title" && request.method === "POST") {
+        const parents = await loadParents(env);
+        const acc = parents.find(function (p) { return p.id === me.id; });
+        acc.title = cleanTitle(b.title);
+        await env.SUBS.put("parents", JSON.stringify(parents));
+        return json({ ok: true, title: acc.title });
+      }
       // Where a child is (for prayer times): their latest report, or one of their devices.
       function locOf(p) {
         if (p.loc) return p.loc;
@@ -536,7 +578,7 @@ export default {
       }
 
       if (url.pathname === "/parent/kids") {
-        const kids = profiles.map(function (p) {
+        const kids = mine.map(function (p) {
           const loc = locOf(p), cur = loc ? currentPrayer(loc, now) : null;
           const day = cur ? cur.day : (function () { const d = new Date(now); return d.getUTCFullYear() + "-" + (d.getUTCMonth() + 1) + "-" + d.getUTCDate(); })();
           const t = {};
@@ -546,28 +588,29 @@ export default {
             hist: p.hist || {}, times: cur ? t : null, current: cur ? cur.key : null, tz: loc ? loc.tz : null, seen: p.seen || 0 };
         });
         const loose = [];
-        for (const x of subs) if (x.mode === "kids" && !x.kidId) loose.push({ id: await kidId(x.sub.endpoint), name: x.name || "", seen: x.seen || x.updated || 0, canLink: !!x.device });
+        // Devices from before kids had accounts: only the first (original) parent sees them.
+        if (me.legacy) for (const x of subs) if (x.mode === "kids" && !x.kidId) loose.push({ id: await kidId(x.sub.endpoint), name: x.name || "", seen: x.seen || x.updated || 0, canLink: !!x.device });
         return json({ kids: kids, devices: loose, now: now });
       }
       if (url.pathname === "/parent/addkid" && request.method === "POST") {
         const name = cleanName(b.name);
         if (!name) return json({ error: "missing name" }, 400);
-        if (profiles.length >= 20) return json({ error: "too many" }, 400);
-        const p = { id: b64u(crypto.getRandomValues(new Uint8Array(9))), name: name, code: newCode(profiles), devices: [], hist: {}, created: now, seen: 0 };
+        if (mine.length >= 20) return json({ error: "too many" }, 400);
+        const p = { id: b64u(crypto.getRandomValues(new Uint8Array(9))), parentId: me.id, name: name, code: newCode(profiles), devices: [], hist: {}, created: now, seen: 0 };
         profiles.push(p);
         await env.SUBS.put("kids", JSON.stringify(profiles));
         return json({ ok: true, id: p.id, code: p.code });
       }
       if (url.pathname === "/parent/removekid" && request.method === "POST") {
+        if (!myKid(b.id)) return json({ error: "not found" }, 404);
         const keep = profiles.filter(function (p) { return p.id !== b.id; });
-        if (keep.length === profiles.length) return json({ error: "not found" }, 404);
         await env.SUBS.put("kids", JSON.stringify(keep));
         // Stop this child's reminders on all their devices.
         await env.SUBS.put("subs", JSON.stringify(subs.filter(function (x) { return x.kidId !== b.id; })));
         return json({ ok: true });
       }
       if (url.pathname === "/parent/rename" && request.method === "POST") {
-        const p = profiles.find(function (x) { return x.id === b.id; });
+        const p = myKid(b.id);
         if (!p) return json({ error: "not found" }, 404);
         const name = cleanName(b.name);
         if (!name) return json({ error: "missing name" }, 400);
@@ -576,7 +619,7 @@ export default {
         return json({ ok: true });
       }
       if (url.pathname === "/parent/newcode" && request.method === "POST") {
-        const p = profiles.find(function (x) { return x.id === b.id; });
+        const p = myKid(b.id);
         if (!p) return json({ error: "not found" }, 404);
         p.code = newCode(profiles);
         await env.SUBS.put("kids", JSON.stringify(profiles));
@@ -584,8 +627,8 @@ export default {
       }
       // Link a device that registered before it was linked (shown under "devices not linked").
       if (url.pathname === "/parent/link" && request.method === "POST") {
-        const p = profiles.find(function (x) { return x.id === b.kidId; });
-        if (!p) return json({ error: "not found" }, 404);
+        const p = myKid(b.kidId);
+        if (!p || !me.legacy) return json({ error: "not found" }, 404);
         let rec = null;
         for (const x of subs) if (x.mode === "kids" && (await kidId(x.sub.endpoint)) === b.device) rec = x;
         if (!rec || !rec.device) return json({ error: "device cannot be linked" }, 400);
@@ -599,6 +642,7 @@ export default {
       }
       // Remove a device that isn't linked to any child.
       if (url.pathname === "/parent/remove" && request.method === "POST") {
+        if (!me.legacy) return json({ error: "not found" }, 404);
         const keep = [];
         for (const x of subs) if (x.mode !== "kids" || x.kidId || (await kidId(x.sub.endpoint)) !== b.id) keep.push(x);
         await env.SUBS.put("subs", JSON.stringify(keep));
@@ -610,6 +654,7 @@ export default {
         let sent = 0;
         for (const x of subs) {
           if (x.mode !== "kids") continue;
+          if (myIds.indexOf(x.kidId) < 0) continue;
           if (b.ids !== "all" && (!Array.isArray(b.ids) || b.ids.indexOf(x.kidId) < 0)) continue;
           const p = x.kidId ? profiles.find(function (q) { return q.id === x.kidId; }) : null;
           const cur = currentPrayer(p && p.loc ? p.loc : x, now);
@@ -619,7 +664,7 @@ export default {
           const who = name ? "يا " + name + " " : "";
           const body = text || (cur.key && done.indexOf(cur.key) < 0 ? who + "قم صلِّ " + nm + " الآن 🕌" : who + "حافظ على صلاتك، بارك الله فيك 💚");
           try {
-            const r = await sendPush(vapid, x.sub, { title: "📣 رسالة من بابا", body: body, tag: "parent-" + now, url: APP_URL + "kids/" });
+            const r = await sendPush(vapid, x.sub, { title: "📣 رسالة من " + (me.title || "بابا"), body: body, tag: "parent-" + now, url: APP_URL + "kids/" });
             if (r.ok) sent++;
           } catch (e) {}
         }
