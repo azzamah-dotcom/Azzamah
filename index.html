@@ -58,9 +58,14 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .bar{flex:1;height:6px;border-radius:6px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
 .progress span{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums;min-width:4.5em;text-align:left}
-.cat-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:6px}
+.cat-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
 .cat-head h2{font-family:var(--f-text);font-size:1.6rem;margin:0}
-.linkbtn{background:none;border:0;color:var(--accent);font-size:.85rem;padding:4px}
+.reset-btn{flex:none;width:44px;height:44px;border-radius:50%;border:1.5px solid var(--accent);background:var(--accent-soft);display:grid;place-items:center;padding:0;cursor:pointer}
+.reset-btn svg{width:22px;height:22px;stroke:var(--accent)}
+.reset-btn:active{transform:scale(.92)}
+.reset-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.reset-btn.spin svg{animation:spin .5s ease-out}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(-360deg)}}
 
 .list{display:flex;flex-direction:column;gap:14px;margin-top:14px}
 .card{position:relative;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px 20px 14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:background .2s,opacity .2s,transform .08s}
@@ -95,7 +100,9 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 @media (max-width:480px){.row{grid-template-columns:1fr}.card .txt{font-size:1.25rem}}
 .msg{font-size:.85rem;min-height:1em}
 .msg.err{color:var(--danger)}
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.88rem;z-index:20}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.88rem;z-index:20;display:flex;align-items:center;gap:12px;white-space:nowrap}
+.toast[hidden]{display:none!important}
+.toast-act{background:none;border:0;color:inherit;text-decoration:underline;font-weight:700;font-size:.88rem;padding:2px 4px}
 /* Quran banner */
 .hero{margin-top:16px;position:relative;overflow:hidden;border-radius:18px;padding:18px 20px 16px;color:#f4efe0;
   background:radial-gradient(120% 140% at 100% 0%,#1d7a62 0%,#0d4a3c 55%,#082f27 100%)}
@@ -209,7 +216,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 
   <div id="adhkarView">
     <div class="progress"><div class="bar"><i id="barFill"></i></div><span id="progTxt">0 / 0</span></div>
-    <div class="cat-head"><h2 id="catTitle">جارٍ التحميل…</h2><button class="linkbtn" id="resetBtn" type="button">إعادة العداد</button></div>
+    <div class="cat-head"><h2 id="catTitle">جارٍ التحميل…</h2><button class="reset-btn" id="resetBtn" type="button" aria-label="إعادة العداد" title="إعادة العداد"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.4 5.7"/><path d="M20 4v7h-7"/></svg></button></div>
     <div class="list" id="list"></div>
   </div>
 

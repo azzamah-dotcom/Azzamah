@@ -184,9 +184,15 @@
   }
 
   var toastTimer;
-  function toast(msg) {
+  function toast(msg, actionLabel, action) {
     var t = $("toast"); t.textContent = msg; t.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 2600);
+    if (actionLabel) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "toast-act"; b.textContent = actionLabel;
+      b.addEventListener("click", function () { t.hidden = true; action(); });
+      t.appendChild(b);
+    }
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, actionLabel ? 5000 : 2600);
   }
 
   // ---------- admin: GitHub-backed editing ----------
@@ -253,10 +259,21 @@
   $("sRefresh").addEventListener("click", function () { fetchShared(true); });
 
   $("resetBtn").addEventListener("click", function () {
-    var cat = currentCat();
-    data.items.forEach(function (it) { if (it.c === cat) delete prog.left[it.id]; });
+    var cat = currentCat(), before = {}, any = false;
+    data.items.forEach(function (it) {
+      if (it.c === cat && prog.left[it.id] != null) { before[it.id] = prog.left[it.id]; delete prog.left[it.id]; any = true; }
+    });
     saveProg(); render();
+    var btn = $("resetBtn"); btn.classList.remove("spin"); void btn.offsetWidth; btn.classList.add("spin");
+    if (any) toast("أُعيد عداد هذا القسم", "تراجع", function () {
+      if (prog.date !== todayStr()) return;
+      Object.keys(before).forEach(function (id) { prog.left[id] = before[id]; });
+      saveProg(); render();
+    });
+    else toast("العداد في بدايته");
   });
+  // Counters start fresh at 12 midnight (phone's local time), even if the app stays open.
+  setInterval(checkDay, 30000);
 
   $("addForm").addEventListener("submit", function (ev) {
     ev.preventDefault();

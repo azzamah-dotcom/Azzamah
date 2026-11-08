@@ -1,6 +1,6 @@
 // Offline support: app files are served from cache and refreshed in the background;
 // the adhkar list (azkar.json) is fetched fresh when online and falls back to cache offline.
-var CACHE = "azkar-v4";
+var CACHE = "azkar-v5";
 var SHELL = ["./", "index.html", "app.js", "azkar.json", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {
