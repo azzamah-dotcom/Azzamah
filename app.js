@@ -647,7 +647,144 @@
   computeTimes();
   setInterval(tickPrayer, 1000);
 
+  // ---------- Alerts: adhan, iqama, "did you pray?", and adhkar reminders ----------
+  var NDEF = { adhan: true, iqama: true, after: true, adhkar: true, sound: true, iq: { fajr: 20, dhuhr: 15, asr: 15, maghrib: 10, isha: 15 } };
+  var nset = clone(NDEF);
+  try { var ns = JSON.parse(lsGet("azkar-notif") || "null"); if (ns) { for (var nk in ns) nset[nk] = ns[nk]; nset.iq = Object.assign({}, NDEF.iq, ns.iq || {}); } } catch (e) {}
+  function saveN() { lsSet("azkar-notif", JSON.stringify(nset)); }
+
+  function buildEvents() {
+    if (!ptTimes) return [];
+    var ev = [], t = ptTimes.today, fri = new Date().getDay() === 5, day = todayStr();
+    var where = place && place.city ? " حسب توقيت " + place.city.split("،")[0] : "";
+    ["fajr", "dhuhr", "asr", "maghrib", "isha"].forEach(function (k) {
+      var name = k === "dhuhr" && fri ? "الجمعة" : PNAMES[k], at = t[k].getTime();
+      if (nset.adhan) ev.push({ id: day + k + "a", at: at, kind: "adhan", title: "أذان " + name, body: "حان الآن موعد صلاة " + name + where + ".", url: "#times" });
+      if (nset.iqama && !(k === "dhuhr" && fri)) ev.push({ id: day + k + "i", at: at + (nset.iq[k] || 0) * 60000, kind: "chime", title: "إقامة صلاة " + name, body: "حان موعد الإقامة تقريبًا، أدرك صلاة الجماعة.", url: "#times" });
+      if (nset.after) ev.push({ id: day + k + "h", at: at + 3600000, kind: "chime", title: "هل صليت " + name + "؟", body: "مضت ساعة على أذان " + name + ". سُئل النبي ﷺ: أي العمل أحب إلى الله؟ قال: «الصلاة على وقتها» (البخاري 527).", url: "#times" });
+    });
+    if (nset.adhkar) {
+      ev.push({ id: day + "am", at: t.fajr.getTime() + 40 * 60000, kind: "chime", title: "أذكار الصباح", body: "حان وقت أذكار الصباح، اغتنمها قبل أن يشغلك يومك.", url: "#morning", go: "افتح أذكار الصباح" });
+      ev.push({ id: day + "pm", at: t.asr.getTime() + 30 * 60000, kind: "chime", title: "أذكار المساء", body: "حان وقت أذكار المساء قبل غروب الشمس.", url: "#evening", go: "افتح أذكار المساء" });
+      ev.push({ id: day + "sl", at: t.isha.getTime() + 150 * 60000, kind: "chime", title: "أذكار النوم", body: "لا تنسَ أذكار النوم قبل أن تنام.", url: "#sleep", go: "افتح أذكار النوم" });
+    }
+    return ev;
+  }
+
+  var fired = { day: todayStr(), ids: [] };
+  try { var fr = JSON.parse(lsGet("azkar-fired") || "null"); if (fr && fr.day === fired.day) fired = fr; } catch (e) {}
+  function checkAlerts() {
+    if (fired.day !== todayStr()) fired = { day: todayStr(), ids: [] };
+    var now = Date.now();
+    buildEvents().forEach(function (e) {
+      // Only alerts that are due now (not older than 3 minutes, so reopening the app doesn't replay the day).
+      if (e.at <= now && now - e.at < 180000 && fired.ids.indexOf(e.id) < 0) {
+        fired.ids.push(e.id); lsSet("azkar-fired", JSON.stringify(fired));
+        fireAlert(e);
+      }
+    });
+  }
+
+  // Sound: adhan.mp3 if it was uploaded to the app, otherwise a soft synthesized chime.
+  var actx = null, adhanAudio = null, adhanFile = null;
+  fetch("adhan.mp3", { method: "HEAD", cache: "no-store" }).then(function (r) { adhanFile = r.ok && /audio|mpeg|octet/.test(r.headers.get("content-type") || ""); }).catch(function () { adhanFile = false; });
+  function unlockAudio() {
+    try {
+      if (!actx) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) actx = new AC(); }
+      if (actx && actx.state === "suspended") actx.resume();
+      if (adhanFile && !adhanAudio) { adhanAudio = new Audio("adhan.mp3"); adhanAudio.preload = "auto"; adhanAudio.muted = true; adhanAudio.play().then(function () { adhanAudio.pause(); adhanAudio.muted = false; adhanAudio.currentTime = 0; }).catch(function () { adhanAudio.muted = false; }); }
+    } catch (e) {}
+  }
+  document.addEventListener("pointerdown", unlockAudio, { passive: true });
+  function chime(times) {
+    if (!actx) return;
+    try {
+      if (actx.state === "suspended") actx.resume();
+      var t0 = actx.currentTime + 0.05;
+      for (var r = 0; r < times; r++) {
+        [659.25, 783.99, 987.77].forEach(function (f, i) {
+          var o = actx.createOscillator(), g = actx.createGain(), st = t0 + r * 1.9 + i * 0.42;
+          o.type = "sine"; o.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(0.35, st + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, st + 1.6);
+          o.connect(g); g.connect(actx.destination); o.start(st); o.stop(st + 1.7);
+        });
+      }
+    } catch (e) {}
+  }
+  function playSound(kind) {
+    if (!nset.sound) return;
+    if (kind === "adhan" && adhanFile) {
+      try { if (!adhanAudio) adhanAudio = new Audio("adhan.mp3"); adhanAudio.currentTime = 0; adhanAudio.play().catch(function () { chime(3); }); return; } catch (e) {}
+    }
+    chime(kind === "adhan" ? 3 : 1);
+  }
+  function stopSound() { try { if (adhanAudio) adhanAudio.pause(); } catch (e) {} }
+
+  function systemNotify(e) {
+    if (!("Notification" in window) || Notification.permission !== "granted" || !navigator.serviceWorker) return false;
+    navigator.serviceWorker.ready.then(function (reg) {
+      reg.showNotification(e.title, { body: e.body, icon: "icon-192.png", badge: "icon-192.png", tag: e.id, lang: "ar", dir: "rtl", data: { url: "./" + e.url } });
+    }).catch(function () {});
+    return true;
+  }
+  function fireAlert(e) {
+    if (document.visibilityState !== "visible") { systemNotify(e); return; }
+    $("alTitle").textContent = e.title;
+    $("alBody").textContent = e.body;
+    var go = $("alGo");
+    if (e.go) { go.hidden = false; go.textContent = e.go; go.href = e.url; } else go.hidden = true;
+    var card = $("alertCard");
+    card.classList.toggle("ringing", e.kind === "adhan");
+    card.hidden = false;
+    playSound(e.kind);
+    try { if (navigator.vibrate) navigator.vibrate(e.kind === "adhan" ? [300, 150, 300, 150, 300] : [120, 80, 120]); else buzz(); } catch (err) {}
+  }
+  function closeAlert() { $("alertCard").hidden = true; stopSound(); }
+  $("alClose").addEventListener("click", closeAlert);
+  $("alGo").addEventListener("click", function () { closeAlert(); });
+  setInterval(checkAlerts, 10000);
+
+  // Ask once for notification permission (a tap is required on iPhone).
+  function syncNotifAsk() {
+    var can = "Notification" in window;
+    $("notifAsk").hidden = !(can && Notification.permission === "default" && !lsGet("azkar-notif-asked"));
+    $("nPerm").hidden = !(can && Notification.permission !== "granted");
+  }
+  function askNotif() {
+    unlockAudio();
+    lsSet("azkar-notif-asked", "1");
+    if (!("Notification" in window)) { syncNotifAsk(); return; }
+    Notification.requestPermission().then(function (p) {
+      syncNotifAsk();
+      toast(p === "granted" ? "تم تفعيل التنبيهات" : "لم يُسمح بالإشعارات؛ ستظهر التنبيهات داخل التطبيق فقط");
+    }).catch(function () { syncNotifAsk(); });
+  }
+  $("notifYes").addEventListener("click", askNotif);
+  $("nPerm").addEventListener("click", askNotif);
+  $("nTest").addEventListener("click", function () {
+    unlockAudio();
+    setTimeout(function () { fireAlert({ id: "test", kind: "adhan", title: "تجربة التنبيه", body: "هكذا سيظهر تنبيه الأذان عند دخول وقت الصلاة.", url: "#times" }); }, 150);
+  });
+  // Settings controls
+  ["adhan", "iqama", "after", "adhkar", "sound"].forEach(function (k) {
+    var box = $("n" + k.charAt(0).toUpperCase() + k.slice(1));
+    box.checked = !!nset[k];
+    box.addEventListener("change", function () { nset[k] = box.checked; saveN(); });
+  });
+  ["fajr", "dhuhr", "asr", "maghrib", "isha"].forEach(function (k) {
+    var inp = $("iq-" + k);
+    inp.value = nset.iq[k];
+    inp.addEventListener("change", function () { var v = parseInt(inp.value, 10); nset.iq[k] = v >= 0 && v <= 90 ? v : NDEF.iq[k]; inp.value = nset.iq[k]; saveN(); });
+  });
+  syncNotifAsk();
+
   window.addEventListener("hashchange", render);
+  // Coming back after 10+ minutes away: reload so the latest version (and any list edits) show up.
+  var hiddenAt = 0;
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > 10 * 60000 && !editing && $("sheet").hidden && $("alertCard").hidden && navigator.onLine !== false) { location.reload(); return; }
+  });
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") { checkDay(); if (!editing) fetchShared(false); }
   });
