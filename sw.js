@@ -1,7 +1,7 @@
 // Offline support. The app's own files are fetched fresh from the server on every open (so edits
 // show up as soon as the app is reopened) and fall back to the saved copy when there is no internet.
 // Fonts are served from the saved copy first since they never change.
-var CACHE = "azkar-v9";
+var CACHE = "azkar-v10";
 var SHELL = ["./", "index.html", "prayer.js", "app.js", "azkar.json", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {
@@ -12,7 +12,7 @@ self.addEventListener("install", function (e) {
 
 self.addEventListener("activate", function (e) {
   e.waitUntil(caches.keys().then(function (keys) {
-    return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+    return Promise.all(keys.filter(function (k) { return k.indexOf("azkar-") === 0 && k !== CACHE; }).map(function (k) { return caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
 });
 

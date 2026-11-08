@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>صلاتي</title>
+<meta name="description" content="هل صليت اليوم؟ تطبيق الأطفال لتسجيل الصلوات مع تذكير كل نصف ساعة">
+<meta name="theme-color" content="#2b3478">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="صلاتي">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&display=swap">
+<style>
+/* Layout: a night-sky header with today's stars, then one big card per prayer, then the week. */
+:root{
+  --bg:#f2f4ff;--card:#ffffff;--ink:#1f2554;--muted:#6b7199;--line:#e1e4f5;
+  --night:#2b3478;--night2:#5a4caa;--gold:#ffc94d;--gold-ink:#8a5a00;--green:#1f9d6b;--green-soft:#dff6ec;--late:#e9802b;--late-soft:#fff0e2;
+  --fajr:#ff8fa3;--dhuhr:#ffc94d;--asr:#ff9f43;--maghrib:#f0645a;--isha:#6c63ff;
+  --on-btn:#ffffff;
+  --f:"Baloo Bhaijaan 2","Segoe UI",Tahoma,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#12142b;--card:#1c1f3f;--ink:#eef0ff;--muted:#a3a8d1;--line:#2c3060;
+  --green:#4fd39d;--green-soft:#173b33;--late:#ffad66;--late-soft:#3a2a1c;--gold-ink:#ffd770;--on-btn:#10202a;color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f);font-size:16px;
+  padding-bottom:env(safe-area-inset-bottom,0px);-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+button{font:inherit;cursor:pointer;color:inherit;touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+.sky{position:relative;overflow:hidden;color:#fff;background:linear-gradient(170deg,var(--night) 0%,var(--night2) 100%);
+  padding:calc(18px + env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) 26px max(18px,env(safe-area-inset-left,0px));border-radius:0 0 30px 30px}
+.sky canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.sky>*{position:relative}
+.hello{display:flex;justify-content:space-between;align-items:center;gap:10px;max-width:640px;margin:0 auto}
+.hello h1{margin:0;font-size:2rem;line-height:1.2}
+.hello p{margin:0;opacity:.85;font-size:.95rem}
+.moon{width:54px;height:54px;border-radius:50%;box-shadow:-12px 6px 0 0 var(--gold);transform:rotate(-20deg);margin-left:10px;flex:none}
+.today{max-width:640px;margin:18px auto 0;text-align:center}
+.stars{display:flex;justify-content:center;gap:8px}
+.stars svg{width:46px;height:46px;transition:transform .3s}
+.stars .on{transform:scale(1.08)}
+.stars .off path{fill:rgb(255 255 255 / .18)}
+.stars .on path{fill:var(--gold)}
+.today b{display:block;margin-top:8px;font-size:1.35rem}
+.today span{opacity:.85;font-size:.95rem}
+
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px;display:grid;gap:14px}
+
+.ask{display:flex;align-items:center;gap:12px;background:var(--card);border:2px dashed var(--isha);border-radius:20px;padding:12px 14px}
+.ask p{margin:0;flex:1;font-size:.95rem;line-height:1.5}
+.btn{border:0;border-radius:999px;padding:10px 18px;font-weight:700;font-size:1rem;background:var(--isha);color:#fff}
+
+.next{text-align:center;color:var(--muted);font-size:.98rem}
+.next b{color:var(--ink)}
+
+.list{display:grid;gap:12px}
+.pr{--c:var(--isha);display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;background:var(--card);border-radius:22px;padding:14px;
+  border:2px solid var(--line);box-shadow:0 4px 0 var(--line);transition:transform .15s,border-color .2s,background .2s}
+.pr .ic{width:56px;height:56px;border-radius:18px;background:color-mix(in srgb,var(--c) 22%,transparent);display:grid;place-items:center}
+.pr .ic svg{width:34px;height:34px}
+.pr .nm{font-size:1.45rem;font-weight:800;line-height:1.1}
+.pr .tm{font-size:.95rem;color:var(--muted)}
+.pr .act{min-width:108px;text-align:center}
+.pr .go{border:0;border-radius:16px;padding:12px 14px;font-weight:800;font-size:1.1rem;background:var(--green);color:var(--on-btn);box-shadow:0 4px 0 color-mix(in srgb,var(--green) 60%,#000);width:100%}
+.pr .go:active{transform:translateY(3px);box-shadow:0 1px 0 color-mix(in srgb,var(--green) 60%,#000)}
+.pr .wait{font-size:.9rem;color:var(--muted);line-height:1.3}
+.pr .wait b{display:block;color:var(--ink);font-size:1.05rem;font-variant-numeric:tabular-nums;direction:ltr}
+.pr .got{display:grid;justify-items:center;gap:0;color:var(--green);font-weight:800}
+.pr .got svg{width:40px;height:40px}
+.pr .got path{fill:var(--gold)}
+.undo{background:none;border:0;color:var(--muted);font-size:.8rem;text-decoration:underline;padding:0}
+.pr.now{border-color:var(--green);box-shadow:0 4px 0 var(--green);animation:breathe 2.2s ease-in-out infinite}
+.pr.late{border-color:var(--late);box-shadow:0 4px 0 var(--late)}
+.pr.late .go{background:var(--late);box-shadow:0 4px 0 color-mix(in srgb,var(--late) 60%,#000)}
+.pr.done{background:var(--green-soft);border-color:transparent;box-shadow:none}
+.pr.soon{opacity:.75}
+@keyframes breathe{50%{transform:scale(1.015)}}
+.pr .tag{display:inline-block;font-size:.75rem;font-weight:700;border-radius:999px;padding:1px 8px;margin-inline-start:6px;vertical-align:middle}
+.pr.now .tag{background:var(--green);color:var(--on-btn)}
+.pr.late .tag{background:var(--late-soft);color:var(--late)}
+
+.week{background:var(--card);border-radius:22px;padding:14px 12px;border:2px solid var(--line)}
+.week h2{margin:0 0 10px;font-size:1.15rem;padding-inline:4px}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;text-align:center}
+.day{display:grid;justify-items:center;gap:2px;font-size:.78rem;color:var(--muted)}
+.day .c{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:1rem;color:var(--ink);
+  background:conic-gradient(var(--gold) calc(var(--p)*1%),var(--line) 0)}
+.day .c i{font-style:normal;width:78%;height:78%;border-radius:50%;background:var(--card);display:grid;place-items:center}
+.day.full .c i{background:var(--gold);color:#5a3a00}
+.day.is-today{color:var(--ink);font-weight:800}
+.foot{color:var(--muted);font-size:.8rem;text-align:center;line-height:1.7}
+
+.pop{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:rgb(20 22 60 / .55);padding:20px}
+.pop .box{background:var(--card);border-radius:28px;padding:26px 22px;max-width:360px;width:100%;text-align:center;animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{from{transform:scale(.7);opacity:0}}
+.pop h3{margin:6px 0 4px;font-size:1.6rem}
+.pop p{margin:0 0 16px;color:var(--muted);line-height:1.6}
+.pop .big{font-size:3.4rem;line-height:1}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:31}
+@media (max-width:350px){.day .c{width:34px;height:34px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="sky">
+  <canvas id="skyStars" aria-hidden="true"></canvas>
+  <div class="hello">
+    <div><h1>صلاتي</h1><p id="greet">السلام عليكم يا بطل</p></div>
+    <div class="moon" aria-hidden="true"></div>
+  </div>
+  <div class="today">
+    <div class="stars" id="stars" aria-hidden="true"></div>
+    <b id="countTxt">هل صليت اليوم؟</b>
+    <span id="dateTxt"></span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="ask" id="ask" hidden>
+    <p>فعّل التذكير ليذكّرك الجوال بكل صلاة كل نصف ساعة حتى تصليها.</p>
+    <button class="btn" id="askBtn" type="button">تفعيل</button>
+  </div>
+  <p class="next" id="nextTxt">جارٍ تحديد موقعك لمعرفة أوقات الصلاة…</p>
+  <section class="list" id="list" aria-label="صلوات اليوم"></section>
+  <section class="week">
+    <h2>نجومي هذا الأسبوع</h2>
+    <div class="days" id="days"></div>
+  </section>
+  <p class="foot">اضغط «صليت» بعد كل صلاة لتربح نجمة. يصلك تذكير عند الأذان ثم كل نصف ساعة حتى تصلي.<br><button class="undo" id="testBtn" type="button">تجربة التذكير</button></p>
+</main>
+
+<div class="pop" id="pop" hidden role="dialog" aria-modal="true" aria-labelledby="popTitle">
+  <div class="box">
+    <div class="big" id="popBig">⭐</div>
+    <h3 id="popTitle"></h3>
+    <p id="popBody"></p>
+    <button class="btn" id="popBtn" type="button">حسنًا</button>
+  </div>
+</div>
+<canvas id="confetti" aria-hidden="true" hidden></canvas>
+
+<script src="../prayer.js"></script>
+<script src="kids.js"></script>
+</body>
+</html>

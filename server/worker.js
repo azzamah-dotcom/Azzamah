@@ -240,7 +240,31 @@ function localDay(timeZone, utcMs) {
   const d = new Date(utcMs + off * 3600000);
   return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate(), wd: d.getUTCDay() };
 }
+// Kids app: a reminder at the adhan and every 30 minutes after it, until the child marks the
+// prayer as prayed or the next prayer comes in.
+const KID_NUDGES = ["صلاتك نور ⭐ لا تؤخّرها", "الله يحب من يصلي على الوقت 💚", "قم الآن وتوضأ وصلِّ، ثم سجّل نجمتك ⭐", "أنت بطل، والبطل لا ينسى صلاته 🌟"];
+function kidEventsFor(s, day) {
+  const tz = tzOffsetHours(s.tz, Date.UTC(day.y, day.m, day.d, 12));
+  const t = PC.computeFor(day.y, day.m, day.d, tz, s.lat, s.lon, s.method || "mwl", !!s.hanafi);
+  const id = day.y + "-" + (day.m + 1) + "-" + day.d;
+  const done = s.marks && s.marks.day === id ? s.marks.done || [] : [];
+  const fri = day.wd === 5;
+  const ends = { fajr: t.sunrise, dhuhr: t.asr, asr: t.maghrib, maghrib: t.isha, isha: t.isha + 150 * 60000 };
+  const ev = [];
+  for (const k of ["fajr", "dhuhr", "asr", "maghrib", "isha"]) {
+    if (done.indexOf(k) >= 0) continue;
+    const name = k === "dhuhr" && fri ? "الجمعة" : PNAMES[k];
+    for (let at = t[k], i = 0; at < ends[k] - 60000; at += 30 * 60000, i++) {
+      ev.push(i === 0
+        ? { tag: id + k + "k", at: at, title: "🕌 حان وقت صلاة " + name, body: "قم توضأ وصلِّ، ثم اضغط «صليت» واربح نجمة ⭐", url: "" }
+        : { tag: id + k + "k", at: at, title: "هل صليت " + name + "؟ 🤔", body: KID_NUDGES[(i - 1) % KID_NUDGES.length], url: "" });
+    }
+  }
+  return ev;
+}
+
 function eventsFor(s, day) {
+  if (s.mode === "kids") return kidEventsFor(s, day);
   const n = Object.assign({}, NDEF, s.n || {});
   n.iq = Object.assign({}, NDEF.iq, (s.n && s.n.iq) || {});
   const tz = tzOffsetHours(s.tz, Date.UTC(day.y, day.m, day.d, 12));
@@ -280,7 +304,7 @@ async function runMinute(env, nowMs) {
     }
     for (const e of due) {
       try {
-        const r = await sendPush(vapid, s.sub, { title: e.title, body: e.body, tag: e.tag, url: APP_URL + e.url });
+        const r = await sendPush(vapid, s.sub, { title: e.title, body: e.body, tag: e.tag, url: (s.mode === "kids" ? APP_URL + "kids/" : APP_URL) + e.url });
         if (r.status === 404 || r.status === 410) { dead.push(s.sub.endpoint); break; }
         if (r.ok) sent++;
       } catch (err) { /* try again next time */ }
@@ -316,12 +340,28 @@ export default {
         sub: { endpoint: b.sub.endpoint, keys: { p256dh: b.sub.keys.p256dh, auth: b.sub.keys.auth } },
         lat: Number(b.lat), lon: Number(b.lon), tz: String(b.tz || "UTC").slice(0, 64),
         method: PC.METHODS[b.method] ? b.method : "mwl", hanafi: !!b.hanafi,
-        city: String(b.city || "").slice(0, 80), n: b.n || {}, updated: Date.now()
+        city: String(b.city || "").slice(0, 80), n: b.n || {}, updated: Date.now(),
+        mode: b.mode === "kids" ? "kids" : "full"
       };
       if (!isFinite(rec.lat) || !isFinite(rec.lon)) return json({ error: "missing location" }, 400);
-      const subs = ((await env.SUBS.get("subs", "json")) || []).filter(function (s) { return s.sub.endpoint !== rec.sub.endpoint; });
+      const all = (await env.SUBS.get("subs", "json")) || [];
+      const prev = all.find(function (s) { return s.sub.endpoint === rec.sub.endpoint; });
+      if (b.marks && typeof b.marks.day === "string") rec.marks = { day: b.marks.day.slice(0, 12), done: (b.marks.done || []).filter(function (k) { return PNAMES[k]; }) };
+      else if (prev && prev.marks) rec.marks = prev.marks;
+      const subs = all.filter(function (s) { return s.sub.endpoint !== rec.sub.endpoint; });
       subs.push(rec);
       await env.SUBS.put("subs", JSON.stringify(subs.slice(-500)));
+      return json({ ok: true });
+    }
+    // Kids app: which prayers were prayed today (stops that prayer's reminders).
+    if (url.pathname === "/mark" && request.method === "POST") {
+      let b = {};
+      try { b = await request.json(); } catch (e) { return json({ error: "bad json" }, 400); }
+      const subs = (await env.SUBS.get("subs", "json")) || [];
+      const s = subs.find(function (x) { return x.sub.endpoint === b.endpoint; });
+      if (!s) return json({ error: "not subscribed" }, 404);
+      s.marks = { day: String(b.day || "").slice(0, 12), done: (b.done || []).filter(function (k) { return PNAMES[k]; }) };
+      await env.SUBS.put("subs", JSON.stringify(subs));
       return json({ ok: true });
     }
     if (url.pathname === "/unsubscribe" && request.method === "POST") {
@@ -337,7 +377,10 @@ export default {
       const subs = (await env.SUBS.get("subs", "json")) || [];
       const s = subs.find(function (x) { return x.sub.endpoint === b.endpoint; });
       if (!s) return json({ error: "not subscribed" }, 404);
-      const r = await sendPush(await getVapid(env), s.sub, { title: "تجربة الإشعارات", body: "الإشعارات تعمل، وسيصلك الأذان والتذكيرات والتطبيق مغلق.", tag: "test", url: APP_URL });
+      const kid = s.mode === "kids";
+      const r = await sendPush(await getVapid(env), s.sub, kid
+        ? { title: "مرحبًا يا بطل 🌟", body: "التذكير يعمل! سنذكّرك بكل صلاة حتى تصليها.", tag: "test", url: APP_URL + "kids/" }
+        : { title: "تجربة الإشعارات", body: "الإشعارات تعمل، وسيصلك الأذان والتذكيرات والتطبيق مغلق.", tag: "test", url: APP_URL });
       return json({ ok: r.ok, status: r.status });
     }
     return json({ ok: true, name: "حصن الأذكار — خادم الإشعارات" });
