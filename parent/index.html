@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>أولادي</title>
+<meta name="description" content="لوحة ولي الأمر: صلوات الأولاد اليوم وهذا الأسبوع، وتذكيرهم بالصلاة">
+<meta name="theme-color" content="#0f5c4a">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="أولادي">
+<link rel="icon" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one column; a "call everyone to pray" bar on top, then one card per child. */
+:root{
+  --bg:#eef1ec;--paper:#fbfcf9;--ink:#1b2a24;--muted:#5d6e66;--line:#d5ddd6;
+  --accent:#0f5c4a;--accent-soft:#dcebe4;--gold:#9a7a2c;
+  --ok:#1f8a5b;--ok-soft:#dcf1e6;--now:#c96d12;--now-soft:#fbead6;--miss:#b23b32;--miss-soft:#f7e0dd;--wait:#c4cec8;
+  --f-title:"Amiri","Times New Roman",serif;--f-ui:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1714;--paper:#16211d;--ink:#e3ebe6;--muted:#93a49b;--line:#26352f;--accent:#5fc3a3;--accent-soft:#1d3a31;--gold:#d2b066;
+  --ok:#5fd19b;--ok-soft:#173a2b;--now:#f0a35c;--now-soft:#3b2a18;--miss:#ef7b70;--miss-soft:#3d1f1c;--wait:#3a4a43;color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.wrap{max-width:680px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 48px;display:grid;gap:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+header h1{font-family:var(--f-title);font-size:2.1rem;margin:0;line-height:1.2}
+header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:8px 14px;font-size:.88rem;font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.btn:disabled{opacity:.55;cursor:default}
+.link{background:none;border:0;color:var(--muted);font-size:.85rem;text-decoration:underline;padding:4px}
+
+.lock{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:22px 18px;display:grid;gap:12px;text-align:center;justify-items:center}
+.lock h2{margin:0;font-size:1.2rem}
+.lock p{margin:0;color:var(--muted);line-height:1.7;max-width:40ch}
+.pin{width:min(260px,100%);text-align:center;font-size:1.6rem;letter-spacing:.3em;border:1.5px solid var(--line);border-radius:14px;padding:10px;background:var(--bg);direction:ltr}
+.msg{min-height:1.2em;font-size:.88rem;color:var(--miss)}
+
+.call{background:radial-gradient(120% 160% at 100% 0%,#1d7a62 0%,#0d4a3c 60%,#082f27 100%);color:#f4efe0;border-radius:18px;padding:16px;display:grid;gap:10px}
+.call h2{margin:0;font-size:1.05rem}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.preset{border:1px solid rgb(255 255 255 / .28);background:rgb(255 255 255 / .08);color:#f4efe0;border-radius:999px;padding:6px 12px;font-size:.84rem}
+.preset[aria-pressed="true"]{background:#d6b468;border-color:#d6b468;color:#2a2108;font-weight:700}
+.custom{width:100%;border:1px solid rgb(255 255 255 / .28);background:rgb(0 0 0 / .18);color:#fff;border-radius:12px;padding:9px 12px;font-size:16px}
+.custom::placeholder{color:rgb(255 255 255 / .6)}
+.call .send-all{background:#d6b468;color:#2a2108;border:0;border-radius:14px;padding:12px;font-weight:700;font-size:1rem}
+
+.kids{display:grid;gap:12px}
+.kid{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:grid;gap:12px}
+.kid-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.kid-name{font-family:var(--f-title);font-size:1.6rem;line-height:1.1;margin:0}
+.kid-sub{color:var(--muted);font-size:.8rem}
+.score{font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);white-space:nowrap}
+.score small{font-size:.8rem;color:var(--muted);font-weight:500}
+.prayers{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.p{border-radius:12px;padding:8px 4px;text-align:center;display:grid;gap:2px;background:var(--bg);border:1.5px solid transparent}
+.p b{font-size:.92rem}
+.p span{font-size:.72rem;color:var(--muted)}
+.p.done{background:var(--ok-soft);border-color:var(--ok)}
+.p.done span{color:var(--ok);font-weight:700}
+.p.now{background:var(--now-soft);border-color:var(--now)}
+.p.now span{color:var(--now);font-weight:700}
+.p.miss{background:var(--miss-soft);border-color:var(--miss)}
+.p.miss span{color:var(--miss);font-weight:700}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;align-items:end;height:64px}
+.bar{display:grid;justify-items:center;gap:3px;font-size:.68rem;color:var(--muted);height:100%;align-content:end}
+.bar i{display:block;width:70%;max-width:22px;border-radius:6px 6px 2px 2px;background:var(--accent);min-height:3px}
+.bar i.full{background:var(--gold)}
+.bar.today{color:var(--ink);font-weight:700}
+.kid-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.kid-actions .btn.primary{flex:1}
+.empty{background:var(--paper);border:1px dashed var(--line);border-radius:18px;padding:22px;text-align:center;color:var(--muted);line-height:1.8}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.88rem;z-index:20;white-space:nowrap}
+.foot{color:var(--muted);font-size:.78rem;text-align:center;line-height:1.8}
+.edit{display:flex;gap:6px}
+.edit input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:7px 10px;background:var(--bg);font-size:16px}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div><h1>أولادي</h1><p>صلوات الأولاد اليوم وتذكيرهم بالصلاة</p></div>
+    <button class="btn" id="refresh" type="button" hidden>تحديث</button>
+  </header>
+
+  <section class="lock" id="lock" hidden>
+    <h2 id="lockTitle">أدخل رمز ولي الأمر</h2>
+    <p id="lockText">هذه الصفحة لولي الأمر فقط.</p>
+    <input class="pin" id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12" aria-label="الرمز">
+    <input class="pin" id="pin2" type="password" inputmode="numeric" autocomplete="off" maxlength="12" aria-label="تأكيد الرمز" placeholder="تأكيد" hidden>
+    <div class="msg" id="lockMsg"></div>
+    <button class="btn primary" id="lockBtn" type="button">دخول</button>
+  </section>
+
+  <section id="dash" hidden>
+    <div class="call">
+      <h2>نادِ الأولاد للصلاة</h2>
+      <div class="presets" id="presets" role="group" aria-label="نص الرسالة"></div>
+      <input class="custom" id="custom" maxlength="140" placeholder="أو اكتب رسالتك…" aria-label="رسالة مخصصة">
+      <button class="send-all" id="sendAll" type="button">📣 أرسل للجميع</button>
+    </div>
+    <div class="kids" id="kids" style="margin-top:14px"></div>
+    <p class="foot">تتحدّث الصفحة كل دقيقة. «الآن» تعني أن وقت الصلاة دخل ولم يسجّلها بعد، و«فاتته» أن وقت الصلاة التالية دخل.<br><button class="link" id="logout" type="button">خروج من هذا الجهاز</button></p>
+  </section>
+</main>
+<div class="toast" id="toast" hidden></div>
+<script src="parent.js"></script>
+</body>
+</html>

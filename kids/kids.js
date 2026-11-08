@@ -84,8 +84,8 @@
     var st = $("stars"); st.innerHTML = "";
     for (var i = 0; i < 5; i++) { var w = el("span", i < n ? "on" : "off"); w.innerHTML = STAR; st.appendChild(w.firstChild); st.lastChild.setAttribute("class", i < n ? "on" : "off"); }
     $("countTxt").textContent = n === 5 ? "ما شاء الله! صليت كل صلواتك اليوم" : n === 0 ? "هل صليت اليوم؟" : "صليت " + n + " من 5 اليوم";
-    var h = new Date().getHours();
-    $("greet").textContent = h < 12 ? "صباح الخير يا بطل" : "مساء الخير يا بطل";
+    var h = new Date().getHours(), nm = lsGet("kids-name") || "بطل";
+    $("greet").textContent = (h < 12 ? "صباح الخير يا " : "مساء الخير يا ") + nm;
     try {
       $("dateTxt").textContent = new Intl.DateTimeFormat("ar-u-nu-latn", { weekday: "long" }).format(new Date()) + " · " +
         new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", { day: "numeric", month: "long" }).format(new Date());
@@ -191,6 +191,33 @@
     saveLog(); render(); sendMarks();
   }
 
+  // ---------- the child's name ----------
+  function askName() {
+    $("nameInput").value = lsGet("kids-name") || "";
+    $("namePop").hidden = false;
+    setTimeout(function () { $("nameInput").focus(); }, 50);
+  }
+  $("greet").addEventListener("click", askName);
+  $("nameForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var nm = $("nameInput").value.replace(/[<>]/g, "").trim().slice(0, 24);
+    if (!nm) return;
+    lsSet("kids-name", nm);
+    $("namePop").hidden = true;
+    renderHeader();
+    var ep = lsGet("kids-push-ep");
+    if (ep) fetch(PUSH + "/kid/name", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: ep, name: nm }) }).catch(function () {});
+  });
+  // A name set by the parent from the dashboard wins.
+  function pullName() {
+    var ep = lsGet("kids-push-ep");
+    if (!ep) return;
+    fetch(PUSH + "/kid/info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: ep }) })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j && j.name && j.name !== lsGet("kids-name")) { lsSet("kids-name", j.name); renderHeader(); } })
+      .catch(function () {});
+  }
+
   // ---------- popups, sound, confetti ----------
   function popup(big, title, body) {
     $("popBig").textContent = big; $("popTitle").textContent = title; $("popBody").textContent = body;
@@ -277,8 +304,8 @@
         var tz = "UTC"; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) {}
         lsSet("kids-push-ep", sub.endpoint);
         return fetch(PUSH + "/subscribe", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "kids", sub: sub.toJSON(), lat: place.lat, lon: place.lon, tz: tz, method: method(), hanafi: hanafi(), marks: { day: dayKey(), done: doneToday() } }) });
-      }).catch(function () {});
+          body: JSON.stringify({ mode: "kids", name: lsGet("kids-name") || "", sub: sub.toJSON(), lat: place.lat, lon: place.lon, tz: tz, method: method(), hanafi: hanafi(), marks: { day: dayKey(), done: doneToday() } }) });
+      }).then(function () { pullName(); }).catch(function () {});
   }
   function sendMarks() {
     var ep = lsGet("kids-push-ep");
@@ -292,7 +319,7 @@
     if (!("Notification" in window)) return;
     Notification.requestPermission().then(function (p) {
       syncAsk();
-      if (p === "granted") { syncPush(); popup("🔔", "تم تفعيل التذكير", "سنذكّرك بكل صلاة حتى تصليها."); }
+      if (p === "granted") { syncPush(); popup("🔔", "تم تفعيل التذكير", "سنذكّرك بكل صلاة حتى تصليها، وتصلك رسائل بابا هنا."); }
     });
   });
   $("testBtn").addEventListener("click", function () {
@@ -314,6 +341,7 @@
   });
   document.addEventListener("gesturestart", function (e) { e.preventDefault(); });
   computeTimes(); render(); syncAsk(); locate();
+  if (!lsGet("kids-name")) setTimeout(askName, 600);
   setInterval(tick, 1000);
   setTimeout(syncPush, 3000);
   if ("serviceWorker" in navigator) {

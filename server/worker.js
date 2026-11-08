@@ -137,7 +137,7 @@ const NDEF = { adhan: true, iqama: true, after: true, adhkar: true, iq: { fajr: 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type"
+  "Access-Control-Allow-Headers": "Content-Type, X-Parent-Key"
 };
 function json(data, status) {
   return new Response(JSON.stringify(data), { status: status || 200, headers: Object.assign({ "Content-Type": "application/json" }, CORS) });
@@ -224,6 +224,45 @@ async function sendPush(vapid, sub, data) {
     },
     body: body
   });
+}
+
+
+// ---------- kids: history, names, and the parent dashboard ----------
+function cleanDone(list) { return (list || []).filter(function (k) { return PNAMES[k]; }).filter(function (k, i, a) { return a.indexOf(k) === i; }); }
+function cleanName(n) { return String(n || "").replace(/[<>]/g, "").trim().slice(0, 24); }
+function setHist(s, day, done) {
+  s.hist = s.hist || {};
+  s.hist[day] = done;
+  const keys = Object.keys(s.hist).sort(function (a, b) { return Date.parse(b) - Date.parse(a); });
+  keys.slice(14).forEach(function (k) { delete s.hist[k]; });
+}
+async function kidId(endpoint) {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(endpoint)));
+  return b64u(h).slice(0, 12);
+}
+async function pinHash(pin, salt) {
+  const key = await crypto.subtle.importKey("raw", enc.encode(pin), "PBKDF2", false, ["deriveBits"]);
+  return b64u(new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: unb64u(salt), iterations: 5000 }, key, 256)));
+}
+function sameStr(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let x = 0;
+  for (let i = 0; i < a.length; i++) x |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return x === 0;
+}
+async function isParent(request, env) {
+  const p = await env.SUBS.get("parent", "json");
+  return !!(p && p.key && sameStr(request.headers.get("X-Parent-Key") || "", p.key));
+}
+// The prayer a child should be praying now (the latest one whose time has come today).
+function currentPrayer(s, nowMs) {
+  const day = localDay(s.tz || "UTC", nowMs);
+  const tz = tzOffsetHours(s.tz, Date.UTC(day.y, day.m, day.d, 12));
+  const t = PC.computeFor(day.y, day.m, day.d, tz, s.lat, s.lon, s.method || "mwl", !!s.hanafi);
+  let cur = null;
+  for (const k of ["fajr", "dhuhr", "asr", "maghrib", "isha"]) if (t[k] <= nowMs) cur = k;
+  const id = day.y + "-" + (day.m + 1) + "-" + day.d;
+  return { key: cur, day: id, fri: day.wd === 5, times: t };
 }
 
 // ---------- prayer reminders for one subscriber ----------
@@ -343,11 +382,17 @@ export default {
         city: String(b.city || "").slice(0, 80), n: b.n || {}, updated: Date.now(),
         mode: b.mode === "kids" ? "kids" : "full"
       };
+      if (rec.mode === "kids") { rec.name = cleanName(b.name); rec.seen = Date.now(); }
       if (!isFinite(rec.lat) || !isFinite(rec.lon)) return json({ error: "missing location" }, 400);
       const all = (await env.SUBS.get("subs", "json")) || [];
       const prev = all.find(function (s) { return s.sub.endpoint === rec.sub.endpoint; });
-      if (b.marks && typeof b.marks.day === "string") rec.marks = { day: b.marks.day.slice(0, 12), done: (b.marks.done || []).filter(function (k) { return PNAMES[k]; }) };
+      if (b.marks && typeof b.marks.day === "string") rec.marks = { day: b.marks.day.slice(0, 12), done: cleanDone(b.marks.done) };
       else if (prev && prev.marks) rec.marks = prev.marks;
+      if (prev && prev.hist) rec.hist = prev.hist;
+      if (rec.mode === "kids") {
+        if (prev && prev.name && prev.nameByParent) { rec.name = prev.name; rec.nameByParent = true; }
+        if (rec.marks) setHist(rec, rec.marks.day, rec.marks.done);
+      }
       const subs = all.filter(function (s) { return s.sub.endpoint !== rec.sub.endpoint; });
       subs.push(rec);
       await env.SUBS.put("subs", JSON.stringify(subs.slice(-500)));
@@ -360,9 +405,116 @@ export default {
       const subs = (await env.SUBS.get("subs", "json")) || [];
       const s = subs.find(function (x) { return x.sub.endpoint === b.endpoint; });
       if (!s) return json({ error: "not subscribed" }, 404);
-      s.marks = { day: String(b.day || "").slice(0, 12), done: (b.done || []).filter(function (k) { return PNAMES[k]; }) };
+      s.marks = { day: String(b.day || "").slice(0, 12), done: cleanDone(b.done) };
+      setHist(s, s.marks.day, s.marks.done);
+      s.seen = Date.now();
       await env.SUBS.put("subs", JSON.stringify(subs));
       return json({ ok: true });
+    }
+
+    // Kids app: read or change the child's name (the parent can rename too).
+    if (url.pathname === "/kid/info" && request.method === "POST") {
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      const s = ((await env.SUBS.get("subs", "json")) || []).find(function (x) { return x.sub.endpoint === b.endpoint; });
+      return s ? json({ name: s.name || "" }) : json({ error: "not subscribed" }, 404);
+    }
+    if (url.pathname === "/kid/name" && request.method === "POST") {
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      const subs = (await env.SUBS.get("subs", "json")) || [];
+      const s = subs.find(function (x) { return x.sub.endpoint === b.endpoint; });
+      if (!s) return json({ error: "not subscribed" }, 404);
+      s.name = cleanName(b.name); s.nameByParent = false;
+      await env.SUBS.put("subs", JSON.stringify(subs));
+      return json({ ok: true });
+    }
+
+    // ---------- parent dashboard (protected by the parent passcode) ----------
+    if (url.pathname === "/parent/status") {
+      const p = await env.SUBS.get("parent", "json");
+      return json({ hasPin: !!(p && p.hash) });
+    }
+    if (url.pathname === "/parent/setup" && request.method === "POST") {
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      const existing = await env.SUBS.get("parent", "json");
+      if (existing && existing.hash) return json({ error: "already set" }, 409);
+      const pin = String(b.pin || "");
+      if (!/^\d{6,12}$/.test(pin)) return json({ error: "pin must be 6-12 digits" }, 400);
+      const salt = b64u(crypto.getRandomValues(new Uint8Array(16)));
+      const key = b64u(crypto.getRandomValues(new Uint8Array(24)));
+      await env.SUBS.put("parent", JSON.stringify({ salt: salt, hash: await pinHash(pin, salt), key: key, fails: 0, lockUntil: 0 }));
+      return json({ key: key });
+    }
+    if (url.pathname === "/parent/login" && request.method === "POST") {
+      let b = {};
+      try { b = await request.json(); } catch (e) {}
+      const p = await env.SUBS.get("parent", "json");
+      if (!p || !p.hash) return json({ error: "no pin" }, 404);
+      if (p.lockUntil && Date.now() < p.lockUntil) return json({ error: "locked", wait: Math.ceil((p.lockUntil - Date.now()) / 60000) }, 429);
+      if (sameStr(await pinHash(String(b.pin || ""), p.salt), p.hash)) {
+        if (p.fails) { p.fails = 0; p.lockUntil = 0; await env.SUBS.put("parent", JSON.stringify(p)); }
+        return json({ key: p.key });
+      }
+      p.fails = (p.fails || 0) + 1;
+      if (p.fails >= 5) { p.lockUntil = Date.now() + 15 * 60000; p.fails = 0; }
+      await env.SUBS.put("parent", JSON.stringify(p));
+      return json({ error: "wrong pin" }, 403);
+    }
+    if (url.pathname.indexOf("/parent/") === 0) {
+      if (!(await isParent(request, env))) return json({ error: "not allowed" }, 401);
+      const subs = (await env.SUBS.get("subs", "json")) || [];
+      const kids = subs.filter(function (s) { return s.mode === "kids"; });
+      const now = Date.now();
+
+      if (url.pathname === "/parent/kids") {
+        const out = [];
+        for (const s of kids) {
+          const cur = currentPrayer(s, now);
+          const t = {};
+          for (const k of ["fajr", "dhuhr", "asr", "maghrib", "isha"]) t[k] = cur.times[k];
+          out.push({ id: await kidId(s.sub.endpoint), name: s.name || "", today: cur.day, done: (s.hist && s.hist[cur.day]) || [], hist: s.hist || {}, times: t, current: cur.key, tz: s.tz, seen: s.seen || s.updated || 0 });
+        }
+        return json({ kids: out, now: now });
+      }
+      if (url.pathname === "/parent/nudge" && request.method === "POST") {
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        const vapid = await getVapid(env);
+        const text = String(b.text || "").replace(/[<>]/g, "").trim().slice(0, 140);
+        let sent = 0;
+        for (const s of kids) {
+          const id = await kidId(s.sub.endpoint);
+          if (b.ids !== "all" && (!Array.isArray(b.ids) || b.ids.indexOf(id) < 0)) continue;
+          const cur = currentPrayer(s, now);
+          const done = (s.hist && s.hist[cur.day]) || [];
+          const nm = cur.key ? (cur.key === "dhuhr" && cur.fri ? "الجمعة" : PNAMES[cur.key]) : "";
+          const who = s.name ? "يا " + s.name + " " : "";
+          const body = text || (cur.key && done.indexOf(cur.key) < 0 ? who + "قم صلِّ " + nm + " الآن 🕌" : who + "حافظ على صلاتك، بارك الله فيك 💚");
+          try {
+            const r = await sendPush(vapid, s.sub, { title: "📣 رسالة من بابا", body: body, tag: "parent-" + now, url: APP_URL + "kids/" });
+            if (r.ok) sent++;
+          } catch (e) {}
+        }
+        return json({ ok: true, sent: sent });
+      }
+      if (url.pathname === "/parent/rename" && request.method === "POST") {
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        for (const s of kids) if ((await kidId(s.sub.endpoint)) === b.id) { s.name = cleanName(b.name); s.nameByParent = true; }
+        await env.SUBS.put("subs", JSON.stringify(subs));
+        return json({ ok: true });
+      }
+      if (url.pathname === "/parent/remove" && request.method === "POST") {
+        let b = {};
+        try { b = await request.json(); } catch (e) {}
+        const keep = [];
+        for (const s of subs) if (s.mode !== "kids" || (await kidId(s.sub.endpoint)) !== b.id) keep.push(s);
+        await env.SUBS.put("subs", JSON.stringify(keep));
+        return json({ ok: true });
+      }
+      return json({ error: "unknown" }, 404);
     }
     if (url.pathname === "/unsubscribe" && request.method === "POST") {
       let b = {};
