@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>حصن الأذكار</title>
 <meta name="description" content="أذكار وأدعية من القرآن الكريم والسنة الصحيحة مع عدّاد">
 <meta name="theme-color" content="#0f5c4a">
@@ -28,7 +28,8 @@
   --bg:#0f1714;--paper:#16211d;--ink:#e3ebe6;--muted:#93a49b;--line:#26352f;
   --accent:#5fc3a3;--accent-soft:#1d3a31;--gold:#d2b066;--done:#121b18;--danger:#ef7b70;color-scheme:dark}}
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+body,.card,button,a{touch-action:manipulation}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
@@ -228,8 +229,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
         <div><b id="qBearing">—</b><span>اتجاه القبلة من الشمال</span></div>
         <div><b id="qDist">—</b><span>المسافة إلى مكة</span></div>
       </div>
-      <div class="tools"><button class="btn primary" id="qCompass" type="button" hidden>تفعيل البوصلة</button><button class="btn" id="qStart" type="button">تحديث الموقع</button></div>
-      <p class="q-help">ضع الجوال مسطّحًا بعيدًا عن المعادن والمغناطيس، ثم استدر حتى تصبح الكعبة أعلى الدائرة عند العلامة الذهبية. إن كانت البوصلة غير دقيقة فحرّك الجوال في الهواء على شكل رقم 8 لمعايرتها.</p>
+      <p class="q-help">ضع الجوال مسطّحًا بعيدًا عن المعادن والمغناطيس، ثم استدر حتى تصبح الكعبة أعلى الدائرة عند العلامة الذهبية، وسيهتز الجوال عند الوصول. إن كانت البوصلة غير دقيقة فحرّك الجوال في الهواء على شكل رقم 8 لمعايرتها.</p>
     </div>
   </section>
 

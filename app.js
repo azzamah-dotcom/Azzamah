@@ -390,14 +390,16 @@
     var box = document.querySelector(".qibla");
     if (heading == null) {
       box.classList.remove("aligned");
-      $("qStatus").textContent = "البوصلة غير متاحة: وجّه أعلى الجوال نحو الشمال، ثم استدر " + Math.round(qibla.bearing) + "° باتجاه عقارب الساعة.";
+      $("qStatus").textContent = needsCompassPermission && compassPerm !== "granted"
+        ? "المس الشاشة مرة واحدة لتشغيل البوصلة"
+        : "البوصلة غير متاحة: وجّه أعلى الجوال نحو الشمال، ثم استدر " + Math.round(qibla.bearing) + "° باتجاه عقارب الساعة.";
       return;
     }
     var diff = ((qibla.bearing - heading + 540) % 360) - 180;
     var aligned = Math.abs(diff) <= 5;
     box.classList.toggle("aligned", aligned);
     $("qStatus").textContent = aligned ? "أنت الآن باتجاه القبلة" : (diff > 0 ? "استدر يمينًا " : "استدر يسارًا ") + Math.round(Math.abs(diff)) + "°";
-    if (aligned && !wasAligned) { try { if (navigator.vibrate) navigator.vibrate(40); } catch (e) {} }
+    if (aligned && !wasAligned) buzz();
     wasAligned = aligned;
   }
   function setPosition(lat, lon) {
@@ -413,7 +415,6 @@
     if (h == null) return;
     var so = (screen.orientation && screen.orientation.angle) || 0;
     heading = (h + so + 360) % 360;
-    $("qCompass").hidden = true;
     drawQibla();
   }
   function startCompass() {
@@ -427,38 +428,78 @@
 
   var DOE = window.DeviceOrientationEvent;
   var needsCompassPermission = !!(DOE && typeof DOE.requestPermission === "function");
-  var located = false, locating = false;
-  function locate(manual) {
-    if (locating) return;
-    if (!navigator.geolocation) { $("qStatus").textContent = "تحديد الموقع غير مدعوم على هذا الجهاز."; return; }
+  var compassPerm = needsCompassPermission ? null : "granted", locating = false;
+
+  // Vibration when facing the Qibla. Android supports navigator.vibrate; iPhone (iOS 18+) gives a
+  // haptic tap when a switch control is toggled, so a hidden switch is used there.
+  var hapticLabel = null;
+  function buzz() {
+    try { if (navigator.vibrate && navigator.vibrate([90, 60, 90])) return; } catch (e) {}
+    try {
+      if (!hapticLabel) {
+        hapticLabel = document.createElement("label");
+        hapticLabel.setAttribute("aria-hidden", "true");
+        hapticLabel.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none";
+        var sw = document.createElement("input");
+        sw.type = "checkbox"; sw.setAttribute("switch", ""); sw.tabIndex = -1;
+        hapticLabel.appendChild(sw);
+        document.body.appendChild(hapticLabel);
+      }
+      hapticLabel.click();
+      setTimeout(function () { hapticLabel.click(); }, 150);
+    } catch (e) {}
+  }
+
+  function locate() {
+    if (locating || !navigator.geolocation) return;
     locating = true;
     if (!qibla) $("qStatus").textContent = "جارٍ تحديد موقعك…";
     navigator.geolocation.getCurrentPosition(function (pos) {
-      locating = false; located = true;
+      locating = false;
       var c = { lat: pos.coords.latitude, lon: pos.coords.longitude };
       lsSet("azkar-pos", JSON.stringify(c));
       setPosition(c.lat, c.lon);
-      if (manual) toast("تم تحديث الموقع");
     }, function () {
       locating = false;
-      $("qStatus").textContent = qibla ? "تعذّر تحديث الموقع، يُستخدم آخر موقع محفوظ." : "تعذّر تحديد موقعك. اسمح للتطبيق بالوصول إلى الموقع من إعدادات الجوال، ثم اضغط «تحديث الموقع».";
-    }, { enableHighAccuracy: false, timeout: 15000, maximumAge: manual ? 0 : 600000 });
+      if (!qibla) $("qStatus").textContent = "تعذّر تحديد موقعك. اسمح للتطبيق بالوصول إلى الموقع من إعدادات الجوال.";
+    }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
   }
-  // Runs every time the Qibla screen opens: location starts by itself, and so does the compass where no tap is required.
-  function openQibla() {
-    if (!located) locate(false);
-    startCompass();
-    if (needsCompassPermission) {
-      setTimeout(function () { if (heading == null) $("qCompass").hidden = false; }, 800);
-    }
-  }
-  $("qCompass").addEventListener("click", function () {
+  // iPhone only allows the compass after a tap, so the tap that opens the Qibla screen asks for it.
+  function askCompass() {
+    if (!needsCompassPermission || compassPerm === "granted" || compassPerm === "pending") return;
+    compassPerm = "pending";
     DOE.requestPermission().then(function (state) {
-      if (state === "granted") { $("qCompass").hidden = true; startCompass(); }
-      else $("qStatus").textContent = "لم يُسمح باستخدام البوصلة. أغلق التطبيق وافتحه، ثم اضغط «تفعيل البوصلة» واختر «سماح».";
-    }).catch(function () { $("qStatus").textContent = "تعذّر تفعيل البوصلة على هذا الجهاز."; });
+      compassPerm = state;
+      if (state === "granted") startCompass();
+      else $("qStatus").textContent = "لم يُسمح باستخدام البوصلة. أغلق التطبيق وافتحه من جديد واختر «سماح».";
+    }).catch(function () { compassPerm = null; });
+  }
+  // Every time the Qibla screen opens: location and compass start by themselves.
+  function openQibla() {
+    locate();
+    startCompass();
+    drawQibla();
+  }
+  chipsEl.addEventListener("click", function (ev) {
+    var a = ev.target.closest && ev.target.closest("a");
+    if (a && a.getAttribute("href") === "#qibla") askCompass();
   });
-  $("qStart").addEventListener("click", function () { locate(true); });
+  $("qiblaView").addEventListener("click", askCompass);
+  $("qiblaView").addEventListener("touchend", askCompass);
+
+  // No zooming: double-tap and pinch are blocked so a quick double tap on a dhikr never zooms the page.
+  document.addEventListener("gesturestart", function (e) { e.preventDefault(); });
+  document.addEventListener("dblclick", function (e) { e.preventDefault(); }, { passive: false });
+  var lastTouch = 0;
+  document.addEventListener("touchend", function (e) {
+    var now = Date.now();
+    if (now - lastTouch < 350 && e.cancelable) {
+      e.preventDefault();
+      var t = e.target.closest && e.target.closest(".card");
+      if (t) t.click();
+    }
+    lastTouch = now;
+  }, { passive: false });
 
   window.addEventListener("hashchange", render);
   document.addEventListener("visibilitychange", function () {
