@@ -414,6 +414,131 @@
     } else popup("🔔", "التذكير غير مفعّل بعد", "اضغط «تفعيل» في الأعلى واسمح بالإشعارات.");
   });
 
+  // ---------- أذكاري: short adhkar for kids, all from the Quran and sahih hadith ----------
+  var KAZ = [
+    { id: "k1", when: "كل يوم", t: "سبحان الله وبحمده، سبحان الله العظيم", n: 10, s: "صحيح البخاري 6406", f: "كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن" },
+    { id: "k2", when: "كل يوم", t: "لا حول ولا قوة إلا بالله", n: 10, s: "صحيح البخاري 4205، مسلم 2704", f: "كنز من كنوز الجنة" },
+    { id: "k3", when: "كل يوم", t: "أستغفر الله", n: 10, s: "صحيح البخاري 6307", f: "كان النبي ﷺ يستغفر الله في اليوم أكثر من سبعين مرة" },
+    { id: "k4", when: "كل يوم", t: "اللهم صلِّ على محمد", n: 10, s: "صحيح مسلم 408", f: "من صلّى على النبي ﷺ مرة صلّى الله عليه بها عشرًا" },
+    { id: "k5", when: "الصباح والمساء", t: "قل هو الله أحد ۝ الله الصمد ۝ لم يلد ولم يولد ۝ ولم يكن له كفوًا أحد", n: 3, s: "سورة الإخلاص — صحيح البخاري 5013", f: "تعدل ثلث القرآن" },
+    { id: "k6", when: "قبل الأكل", t: "بسم الله", n: 1, s: "صحيح البخاري 5376", f: "قال النبي ﷺ: «يا غلام، سمِّ الله، وكُل بيمينك، وكُل مما يليك»" },
+    { id: "k7", when: "بعد الأكل", t: "الحمد لله الذي أطعمني هذا ورزقنيه من غير حول مني ولا قوة", n: 1, s: "أبو داود 4023، الترمذي 3458 — حسن", f: "غُفر له ما تقدّم من ذنبه" },
+    { id: "k8", when: "عند الخروج من البيت", t: "بسم الله، توكلت على الله، ولا حول ولا قوة إلا بالله", n: 1, s: "أبو داود 5095، الترمذي 3426 — صحيح", f: "يُقال له: هُديت وكُفيت ووُقيت" },
+    { id: "k9", when: "قبل دخول الحمّام", t: "اللهم إني أعوذ بك من الخبث والخبائث", n: 1, s: "صحيح البخاري 142، مسلم 375" },
+    { id: "k10", when: "بعد الخروج من الحمّام", t: "غفرانك", n: 1, s: "أبو داود 30، الترمذي 7 — صحيح" },
+    { id: "k11", when: "بعد الوضوء", t: "أشهد أن لا إله إلا الله وحده لا شريك له، وأشهد أن محمدًا عبده ورسوله", n: 1, s: "صحيح مسلم 234", f: "فُتحت له أبواب الجنة الثمانية يدخل من أيها شاء" },
+    { id: "k12", when: "عند العطاس", t: "الحمد لله", n: 1, s: "صحيح البخاري 6224", f: "ويقول له أخوه: يرحمك الله، فيرد: يهديكم الله ويصلح بالكم" },
+    { id: "k13", when: "قبل المذاكرة", t: "ربِّ زدني علمًا", n: 1, s: "سورة طه 114" },
+    { id: "k14", when: "عند ركوب السيارة", t: "سبحان الذي سخّر لنا هذا وما كنا له مقرنين، وإنا إلى ربنا لمنقلبون", n: 1, s: "سورة الزخرف 13–14 — صحيح مسلم 1342" },
+    { id: "k15", when: "قبل النوم", t: "باسمك اللهم أموت وأحيا", n: 1, s: "صحيح البخاري 6324" },
+    { id: "k16", when: "عند الاستيقاظ", t: "الحمد لله الذي أحيانا بعد ما أماتنا وإليه النشور", n: 1, s: "صحيح البخاري 6312" }
+  ];
+  var az = { day: dayKey(), left: {} };
+  try { var azs = JSON.parse(lsGet("kids-az") || "null"); if (azs && azs.day === az.day) az = azs; } catch (e) {}
+  function azLeft(it) { if (az.day !== dayKey()) az = { day: dayKey(), left: {} }; return az.left[it.id] == null ? it.n : az.left[it.id]; }
+  function azSave() { lsSet("kids-az", JSON.stringify(az)); }
+  function azState(card, it) {
+    var l = azLeft(it);
+    card.classList.toggle("done", l === 0);
+    card.querySelector(".c").style.setProperty("--p", ((it.n - l) / it.n * 100).toFixed(1));
+    card.querySelector(".c i").textContent = l === 0 ? "★" : (it.n === 1 ? "✓" : l);
+    card.setAttribute("aria-label", it.t + (l === 0 ? "، قلته" : "، الباقي " + l));
+  }
+  function azHeader() {
+    var done = KAZ.filter(function (it) { return azLeft(it) === 0; }).length;
+    $("azCount").textContent = done === KAZ.length ? "ما شاء الله! قلت كل الأذكار اليوم" : "قلت " + done + " من " + KAZ.length + " اليوم";
+  }
+  function renderAz() {
+    var box = $("azList"); box.textContent = "";
+    KAZ.forEach(function (it) {
+      var card = el("article", "az"); card.tabIndex = 0; card.setAttribute("role", "button");
+      card.appendChild(el("span", "when", it.when));
+      card.appendChild(el("div", "t", it.t));
+      var c = el("div", "c"); c.appendChild(el("i")); card.appendChild(c);
+      var meta = el("div", "meta");
+      if (it.f) { meta.appendChild(el("b", null, it.f)); meta.appendChild(document.createElement("br")); }
+      meta.appendChild(document.createTextNode(it.s));
+      card.appendChild(meta);
+      azState(card, it);
+      function tap() {
+        unlock();
+        var l = azLeft(it);
+        if (l === 0) return;
+        az.left[it.id] = l - 1; azSave(); azState(card, it); azHeader();
+        if (l - 1 === 0) {
+          chime(1);
+          if (KAZ.every(function (x) { return azLeft(x) === 0; })) { popup("🏆", "ما شاء الله!", "قلت كل أذكارك اليوم. ذكرت الله فذكرك."); confetti(); }
+        } else { try { if (navigator.vibrate) navigator.vibrate(20); } catch (e) {} }
+      }
+      card.addEventListener("click", tap);
+      card.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tap(); } });
+      box.appendChild(card);
+    });
+    azHeader();
+  }
+  $("azReset").addEventListener("click", function () { az = { day: dayKey(), left: {} }; azSave(); renderAz(); });
+
+  // ---------- tabs ----------
+  function showTab(name) {
+    var isAz = name === "adhkar";
+    $("prayView").hidden = isAz; $("azView").hidden = !isAz;
+    $("tabPray").setAttribute("aria-selected", isAz ? "false" : "true");
+    $("tabAz").setAttribute("aria-selected", isAz ? "true" : "false");
+    if (isAz) renderAz();
+  }
+  $("tabPray").addEventListener("click", function () { if (location.hash) history.replaceState(null, "", location.pathname); showTab("pray"); });
+  $("tabAz").addEventListener("click", function () { location.hash = "adhkar"; });
+  window.addEventListener("hashchange", function () { showTab(location.hash === "#adhkar" ? "adhkar" : "pray"); });
+
+  // ---------- settings: font size and theme ----------
+  var SIZES = [{ v: 0.9, n: "صغير" }, { v: 1, n: "عادي" }, { v: 1.15, n: "كبير" }, { v: 1.3, n: "كبير جدًا" }, { v: 1.5, n: "ضخم" }];
+  var THEMES = [
+    { id: "space", n: "فضاء", icon: "🚀", a: "#2b3478", b: "#5a4caa" },
+    { id: "ocean", n: "بحر", icon: "🐬", a: "#0b4f7c", b: "#1aa3b8" },
+    { id: "garden", n: "حديقة", icon: "🌳", a: "#1f6b45", b: "#4caf50" },
+    { id: "rose", n: "وردي", icon: "🌸", a: "#b0306b", b: "#f06292" },
+    { id: "butterfly", n: "فراشة", icon: "🦋", a: "#6a2c91", b: "#c06ad8" },
+    { id: "sunset", n: "غروب", icon: "🌅", a: "#c2410c", b: "#f59e0b" }
+  ];
+  function curSize() { var v = parseFloat(lsGet("kids-fs")); return v > 0.8 && v < 1.8 ? v : 1; }
+  function curTheme() { return lsGet("kids-theme") || "space"; }
+  function applySettings() {
+    var root = document.documentElement, t = curTheme();
+    root.style.fontSize = (16 * curSize()) + "px";
+    if (t === "space") root.removeAttribute("data-kt"); else root.setAttribute("data-kt", t);
+    var th = THEMES.filter(function (x) { return x.id === t; })[0];
+    var meta = document.querySelector('meta[name="theme-color"]'); if (meta && th) meta.setAttribute("content", th.a);
+    [].forEach.call($("sizes").children, function (b) { b.setAttribute("aria-checked", parseFloat(b.dataset.v) === curSize() ? "true" : "false"); });
+    [].forEach.call($("themes").children, function (b) { b.setAttribute("aria-checked", b.dataset.t === t ? "true" : "false"); });
+  }
+  SIZES.forEach(function (z) {
+    var b = el("button", "size", "أ"); b.type = "button"; b.dataset.v = z.v; b.setAttribute("role", "radio"); b.setAttribute("aria-label", z.n);
+    b.style.fontSize = (15 + (z.v - 0.9) * 32) + "px";
+    b.addEventListener("click", function () { lsSet("kids-fs", String(z.v)); applySettings(); });
+    $("sizes").appendChild(b);
+  });
+  THEMES.forEach(function (th) {
+    var b = el("button", "theme"); b.type = "button"; b.dataset.t = th.id; b.setAttribute("role", "radio");
+    var sw = el("div", "sw", th.icon); sw.style.background = "linear-gradient(135deg," + th.a + "," + th.b + ")";
+    b.appendChild(sw); b.appendChild(el("span", null, th.n));
+    b.addEventListener("click", function () { lsSet("kids-theme", th.id); applySettings(); chime(1); });
+    $("themes").appendChild(b);
+  });
+  function openSettings() {
+    var nm = linkedName();
+    $("setLinked").textContent = nm ? "هذا الجوال مربوط باسم «" + nm + "»، وصلواتك تظهر لأهلك." : "هذا الجوال غير مربوط بعد. اطلب رمز الربط من بابا أو ماما.";
+    $("setLink").textContent = nm ? "تغيير الحساب" : "إدخال رمز الربط";
+    $("setSheet").hidden = false; $("setBack").hidden = false;
+    $("setClose").focus();
+  }
+  function closeSettings() { $("setSheet").hidden = true; $("setBack").hidden = true; }
+  $("setBtn").addEventListener("click", openSettings);
+  $("setClose").addEventListener("click", closeSettings);
+  $("setBack").addEventListener("click", closeSettings);
+  $("setLink").addEventListener("click", function () { closeSettings(); openLink(); });
+  applySettings();
+  showTab(location.hash === "#adhkar" ? "adhkar" : "pray");
+
   // ---------- start ----------
   // Coming back after 10+ minutes: reload so the latest version shows.
   var hiddenAt = 0;

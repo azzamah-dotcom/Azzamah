@@ -10,6 +10,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="صلاتي">
+<script>
+  (function () { try {
+    var r = document.documentElement, s = parseFloat(localStorage.getItem("kids-fs")), t = localStorage.getItem("kids-theme");
+    if (s > 0.8 && s < 1.8) r.style.fontSize = (16 * s) + "px";
+    if (t) r.setAttribute("data-kt", t);
+  } catch (e) {} })();
+</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -23,6 +30,7 @@
   --night:#2b3478;--night2:#5a4caa;--gold:#ffc94d;--gold-ink:#8a5a00;--green:#1f9d6b;--green-soft:#dff6ec;--late:#e9802b;--late-soft:#fff0e2;
   --fajr:#ff8fa3;--dhuhr:#ffc94d;--asr:#ff9f43;--maghrib:#f0645a;--isha:#6c63ff;
   --on-btn:#ffffff;
+  --brand:#6c63ff;
   --f:"Baloo Bhaijaan 2","Segoe UI",Tahoma,sans-serif;
   color-scheme:light;
 }
@@ -31,7 +39,7 @@
   --green:#4fd39d;--green-soft:#173b33;--late:#ffad66;--late-soft:#3a2a1c;--gold-ink:#ffd770;--on-btn:#10202a;color-scheme:dark}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;touch-action:manipulation}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f);font-size:16px;
+body{margin:0;background:color-mix(in srgb,var(--bg) 93%,var(--brand));color:var(--ink);font-family:var(--f);font-size:1rem;
   padding-bottom:env(safe-area-inset-bottom,0px);-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 button{font:inherit;cursor:pointer;color:inherit;touch-action:manipulation}
@@ -46,7 +54,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .greet{background:none;border:0;padding:0;color:#fff;opacity:.9;font-size:1rem;text-align:right;display:inline-flex;align-items:center;gap:6px}
 .greet::after{content:"";width:14px;height:14px;opacity:.7;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 20h4L19 9l-4-4L4 16z' fill='none' stroke='black' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 20h4L19 9l-4-4L4 16z' fill='none' stroke='black' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
 .name-in{width:100%;font:inherit;font-size:1.3rem;text-align:center;border:2px solid var(--line);border-radius:16px;padding:10px;margin-bottom:14px;background:var(--bg);color:var(--ink)}
-.name-in:focus{outline:none;border-color:var(--isha)}
+.name-in:focus{outline:none;border-color:var(--brand)}
 .code-in{letter-spacing:.35em;direction:ltr;font-size:1.8rem;font-weight:800}
 .link-msg{min-height:1.4em;color:var(--late);font-weight:700;margin:-6px 0 8px}
 #linkForm .undo{display:block;margin:12px auto 0}
@@ -62,9 +70,9 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 
 .wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px;display:grid;gap:14px}
 
-.ask{display:flex;align-items:center;gap:12px;background:var(--card);border:2px dashed var(--isha);border-radius:20px;padding:12px 14px}
+.ask{display:flex;align-items:center;gap:12px;background:var(--card);border:2px dashed var(--brand);border-radius:20px;padding:12px 14px}
 .ask p{margin:0;flex:1;font-size:.95rem;line-height:1.5}
-.btn{border:0;border-radius:999px;padding:10px 18px;font-weight:700;font-size:1rem;background:var(--isha);color:#fff}
+.btn{border:0;border-radius:999px;padding:10px 18px;font-weight:700;font-size:1rem;background:var(--brand);color:#fff}
 
 .next{text-align:center;color:var(--muted);font-size:.98rem}
 .push-state{margin:0;border-radius:16px;padding:10px 14px;font-size:.92rem;line-height:1.6;background:var(--card);border:2px solid var(--line);color:var(--muted)}
@@ -117,6 +125,56 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .pop .big{font-size:3.4rem;line-height:1}
 #confetti{position:fixed;inset:0;pointer-events:none;z-index:31}
 @media (max-width:350px){.day .c{width:34px;height:34px}}
+/* Themes: the child picks one in settings */
+:root[data-kt="ocean"]{--night:#0b4f7c;--night2:#1aa3b8;--brand:#1590c4}
+:root[data-kt="garden"]{--night:#1f6b45;--night2:#4caf50;--brand:#2e9d5b}
+:root[data-kt="rose"]{--night:#b0306b;--night2:#f06292;--brand:#e0457b}
+:root[data-kt="butterfly"]{--night:#6a2c91;--night2:#c06ad8;--brand:#9b4dca}
+:root[data-kt="sunset"]{--night:#c2410c;--night2:#f59e0b;--brand:#ea7a16}
+
+.head-btns{display:flex;gap:8px;align-items:center}
+.gear{width:44px;height:44px;border-radius:50%;border:0;background:rgb(255 255 255 / .18);display:grid;place-items:center;padding:0}
+.gear svg{width:24px;height:24px;stroke:#fff}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--card);border:2px solid var(--line);border-radius:999px;padding:5px}
+.tab{border:0;background:none;border-radius:999px;padding:10px 6px;font-weight:800;font-size:1.05rem;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--brand);color:#fff}
+.view{display:grid;gap:14px}
+
+/* Adhkar for kids */
+.az-top{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:2px solid var(--line);border-radius:20px;padding:12px 14px}
+.az-top b{font-size:1.15rem}
+.az-top span{color:var(--muted);font-size:.9rem}
+.az{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center;background:var(--card);border:2px solid var(--line);border-radius:22px;padding:14px;box-shadow:0 4px 0 var(--line);cursor:pointer;user-select:none;-webkit-user-select:none;transition:transform .12s}
+.az:active{transform:scale(.985)}
+.az .when{grid-column:1/-1;justify-self:start;font-size:.8rem;font-weight:800;border-radius:999px;padding:2px 10px;background:color-mix(in srgb,var(--brand) 15%,transparent);color:var(--brand)}
+.az .t{font-size:1.45rem;font-weight:700;line-height:1.7}
+.az .meta{grid-column:1/-1;font-size:.8rem;color:var(--muted);line-height:1.6}
+.az .meta b{color:var(--ink)}
+.az .c{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:1.2rem;color:var(--brand);
+  background:conic-gradient(var(--brand) calc(var(--p,0)*1%),var(--line) 0)}
+.az .c i{font-style:normal;width:46px;height:46px;border-radius:50%;background:var(--card);display:grid;place-items:center}
+.az.done{background:var(--green-soft);border-color:transparent;box-shadow:none}
+.az.done .c{background:var(--gold)}
+.az.done .c i{background:var(--gold);color:#5a3a00}
+
+/* Settings */
+.sheet{position:fixed;inset:auto 0 0 0;z-index:32;max-height:88vh;overflow-y:auto;background:var(--card);border-radius:26px 26px 0 0;max-width:640px;margin:0 auto;
+  padding:10px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));box-shadow:0 -10px 40px rgb(0 0 0 / .25);animation:up .25s ease-out}
+.sheet-back{position:fixed;inset:0;z-index:31;background:rgb(20 22 60 / .5)}
+@keyframes up{from{transform:translateY(30px);opacity:0}}
+.grip{width:44px;height:5px;border-radius:5px;background:var(--line);margin:4px auto 10px}
+.sheet h3{margin:14px 0 8px;font-size:1.15rem}
+.sheet h3:first-of-type{margin-top:0}
+.sizes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;align-items:stretch}
+.size{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:14px;height:64px;padding:0;font-weight:800;line-height:1;display:grid;place-items:center;overflow:hidden}
+.size[aria-checked="true"]{border-color:var(--brand);background:var(--brand);color:#fff}
+.themes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.theme{border:3px solid transparent;border-radius:18px;padding:0;overflow:hidden;background:var(--bg);display:grid;color:var(--ink);font-weight:800}
+.theme .sw{height:56px;display:grid;place-items:center;font-size:1.5rem}
+.theme span{padding:6px 4px;font-size:.92rem}
+.theme[aria-checked="true"]{border-color:var(--ink)}
+.sheet .row-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.sheet .close{display:block;width:100%;margin-top:18px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -125,7 +183,10 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <canvas id="skyStars" aria-hidden="true"></canvas>
   <div class="hello">
     <div><h1>صلاتي</h1><button class="greet" id="greet" type="button" aria-label="من أنا؟">السلام عليكم يا بطل</button></div>
-    <div class="moon" aria-hidden="true"></div>
+    <div class="head-btns">
+      <div class="moon" aria-hidden="true"></div>
+      <button class="gear" id="setBtn" type="button" aria-label="الإعدادات: حجم الخط والمظهر"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
   </div>
   <div class="today">
     <div class="stars" id="stars" aria-hidden="true"></div>
@@ -135,6 +196,11 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 </header>
 
 <main class="wrap">
+  <div class="tabs" role="tablist" aria-label="الأقسام">
+    <button class="tab" id="tabPray" type="button" role="tab" aria-selected="true">🕌 صلواتي</button>
+    <button class="tab" id="tabAz" type="button" role="tab" aria-selected="false">📿 أذكاري</button>
+  </div>
+  <div class="view" id="prayView">
   <p class="push-state" id="pushState" hidden></p>
   <div class="ask" id="ask" hidden>
     <p>فعّل التذكير ليذكّرك الجوال بكل صلاة كل نصف ساعة حتى تصليها.</p>
@@ -147,7 +213,26 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
     <div class="days" id="days"></div>
   </section>
   <p class="foot">اضغط «صليت» بعد كل صلاة لتربح نجمة. يصلك تذكير عند الأذان ثم كل نصف ساعة حتى تصلي.<br><button class="undo" id="testBtn" type="button">تجربة التذكير</button></p>
+  </div>
+  <div class="view" id="azView" hidden>
+    <div class="az-top"><div><b id="azCount">أذكاري اليوم</b><br><span>اضغط على الذكر كلما قلته</span></div><button class="undo" id="azReset" type="button">من جديد</button></div>
+    <section class="list" id="azList" aria-label="أذكار الأطفال"></section>
+    <p class="foot">كل هذه الأذكار من القرآن الكريم والأحاديث الصحيحة، ومصدر كل ذكر مكتوب تحته.</p>
+  </div>
 </main>
+
+<div class="sheet-back" id="setBack" hidden></div>
+<section class="sheet" id="setSheet" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
+  <div class="grip" aria-hidden="true"></div>
+  <h3 id="setTitle">حجم الخط</h3>
+  <div class="sizes" id="sizes" role="radiogroup" aria-label="حجم الخط"></div>
+  <h3>اختر شكل تطبيقك</h3>
+  <div class="themes" id="themes" role="radiogroup" aria-label="المظهر"></div>
+  <h3>حسابي</h3>
+  <p class="foot" style="text-align:right" id="setLinked"></p>
+  <div class="row-btns"><button class="btn" id="setLink" type="button">رمز الربط</button></div>
+  <button class="btn close" id="setClose" type="button">تم</button>
+</section>
 
 <div class="pop" id="pop" hidden role="dialog" aria-modal="true" aria-labelledby="popTitle">
   <div class="box">
