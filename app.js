@@ -45,8 +45,32 @@
     if (p && p.date === prog.date) prog = p;
   } catch (e) {}
   function saveProg() { lsSet("azkar-progress", JSON.stringify(prog)); }
-  function checkDay() { if (prog.date !== todayStr()) { prog = { date: todayStr(), left: {} }; saveProg(); render(); } }
-  function left(it) { return prog.left[it.id] == null ? it.n : prog.left[it.id]; }
+  function checkDay() { if (prog.date !== todayStr()) { prog = { date: todayStr(), left: {} }; saveProg(); render(); } checkSlot(); }
+  // The prayer whose time we are in now (before Fajr it is still last night's Isha).
+  function prayerSlot() {
+    if (!ptTimes) return null;
+    var now = Date.now(), cur = "isha";
+    ["fajr", "dhuhr", "asr", "maghrib", "isha"].forEach(function (k) { if (ptTimes.today[k].getTime() <= now) cur = k; });
+    return cur;
+  }
+  // How many times for this dhikr now (some are read more after certain prayers).
+  function countOf(it) {
+    var sl = it.nx ? prayerSlot() : null;
+    return sl && it.nx[sl] ? it.nx[sl] : it.n;
+  }
+  function left(it) { var n = countOf(it), l = prog.left[it.id]; return l == null ? n : Math.min(l, n); }
+  // "After prayer" counters start fresh each time a new prayer comes in.
+  function checkSlot() {
+    var sl = prayerSlot();
+    if (!sl) return;
+    var key = sl === "isha" && Date.now() < ptTimes.today.fajr.getTime() ? "prev-isha" : todayStr() + sl;
+    if (prog.slot === key) return;
+    var had = prog.slot != null;
+    prog.slot = key;
+    if (had && data) data.items.forEach(function (it) { if (it.c === "prayer") delete prog.left[it.id]; });
+    saveProg();
+    if (had && data && !editing && currentCat && location.hash === "#prayer") render();
+  }
 
   function currentCat() {
     var h = decodeURIComponent(location.hash.slice(1));
@@ -99,9 +123,10 @@
   function cardState(card, it) {
     var l = left(it);
     card.classList.toggle("done", l === 0);
-    card.querySelector(".ring").style.setProperty("--p", ((it.n - l) / it.n * 100).toFixed(1));
+    var n = countOf(it);
+    card.querySelector(".ring").style.setProperty("--p", ((n - l) / n * 100).toFixed(1));
     card.querySelector(".ring span").textContent = l === 0 ? "✓" : (it.k === "task" ? "" : l);
-    card.setAttribute("aria-label", "الباقي " + l + " من " + it.n);
+    card.setAttribute("aria-label", "الباقي " + l + " من " + n);
   }
 
   function render() {
@@ -122,7 +147,8 @@
     var cat = currentCat();
     var catObj = data.cats.filter(function (c) { return c.id === cat; })[0];
     renderChips(cat);
-    $("catTitle").textContent = catObj.name;
+    var sl = cat === "prayer" ? prayerSlot() : null;
+    $("catTitle").textContent = sl ? "أذكار بعد صلاة " + (sl === "dhuhr" && new Date().getDay() === 5 ? "الجمعة" : PNAMES[sl]) : catObj.name;
     var items = data.items.filter(function (it) { return it.c === cat; });
     listEl.textContent = "";
     if (!items.length) {
@@ -139,7 +165,7 @@
       src.appendChild(el("b", null, it.g || ""));
       src.appendChild(document.createTextNode(it.s ? " · " + it.s : ""));
       var cnt = el("div", "count");
-      cnt.appendChild(el("span", it.k === "task" ? "lbl task" : "lbl", it.k === "task" ? (left(it) === 0 ? "تمّت" : "سُنّة") : (it.n > 1 ? "× " + it.n : "مرة")));
+      cnt.appendChild(el("span", it.k === "task" ? "lbl task" : "lbl", it.k === "task" ? (left(it) === 0 ? "تمّت" : "سُنّة") : (countOf(it) > 1 ? "× " + countOf(it) : "مرة")));
       var ring = el("div", "ring"); ring.appendChild(el("span")); cnt.appendChild(ring);
       foot.appendChild(src); foot.appendChild(cnt);
       card.appendChild(foot);
