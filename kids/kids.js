@@ -263,9 +263,23 @@
     }).catch(function () { $("linkBtn").disabled = false; $("linkMsg").textContent = "لا يوجد إنترنت، حاول لاحقًا"; });
   });
   // On every open: get this child's name and history (or learn that the link was removed).
+  // Opened from the link a parent sent (…/kids/?code=123456): fill in the code and link right away.
+  var urlCode = (function () { var m = /[?&]code=(\d{6})/.exec(location.search); return m ? m[1] : ""; })();
+  if (urlCode) { lsSet("kids-pending-code", urlCode); try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {} }
+  function autoLink() {
+    var code = lsGet("kids-pending-code");
+    if (!code) return false;
+    lsSet("kids-pending-code", "");
+    openLink();
+    $("codeInput").value = code;
+    $("linkForm").requestSubmit ? $("linkForm").requestSubmit() : $("linkBtn").click();
+    return true;
+  }
   function pullInfo() {
     post("/kid/info", { device: device }).then(function (j) {
       if (j._status !== 200) return;
+      if (lsGet("kids-pending-code") && !(j.linked && j.name)) { if (autoLink()) return; }
+      if (j.linked) lsSet("kids-pending-code", "");
       if (j.linked) {
         if (j.name !== linkedName()) { lsSet("kids-linked", j.name); renderHeader(); }
         mergeHist(j.hist);

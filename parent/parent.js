@@ -17,7 +17,7 @@
   var toastT;
   function toast(m) { var t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 2600); }
 
-  var key = lsGet("parent-key"), hasPin = true, preset = 0, kidsData = [], looseData = [], editing = null, showCode = {};
+  var key = lsGet("parent-key"), hasPin = true, preset = 0, kidsData = [], looseData = [], editing = null, showCode = {}, showShare = {};
 
   function api(path, body) {
     var opt = { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json" } };
@@ -208,10 +208,48 @@
         if (rm.dataset.sure) { api("/parent/removekid", { id: k.id }).then(function () { load(); toast("حُذف " + (k.name || "الولد") + " وتوقفت تذكيراته"); }); }
         else { rm.dataset.sure = "1"; rm.textContent = "اضغط مرة أخرى لحذف " + (k.name || "الولد"); setTimeout(function () { delete rm.dataset.sure; rm.textContent = "حذف " + (k.name || "الولد"); }, 4000); }
       });
-      acts.appendChild(nudge); if (k.devices) acts.appendChild(sc); acts.appendChild(ren); acts.appendChild(rm);
+      var sh = el("button", "btn", showShare[k.id] ? "إخفاء" : "📤 أرسل التطبيق"); sh.type = "button";
+      sh.addEventListener("click", function () { showShare[k.id] = !showShare[k.id]; renderKids(); });
+      acts.appendChild(nudge); acts.appendChild(sh); if (k.devices) acts.appendChild(sc); acts.appendChild(ren); acts.appendChild(rm);
       card.appendChild(acts);
+      if (showShare[k.id]) card.appendChild(sharePanel(k));
       box.appendChild(card);
     });
+  }
+
+  // ---------- send the kids app (with this child's link code) to the child's phone ----------
+  var KIDS_URL = "https://azzamah-dotcom.github.io/Azzamah/kids/";
+  function shareText(k) {
+    var nm = k.name || "يا بطل", link = KIDS_URL + "?code=" + k.code;
+    return "السلام عليكم يا " + nm + " 🌟\n" +
+      "هذا تطبيق «صلاتي» لتسجيل صلواتك وتذكيرك بها:\n" + link + "\n\n" +
+      "رمز الربط: " + k.code + "\n\n" +
+      "1) افتح الرابط (في Safari على الآيفون، أو Chrome على الأندرويد)\n" +
+      "2) أضفه إلى الشاشة الرئيسية: زر المشاركة ثم «إضافة إلى الشاشة الرئيسية»\n" +
+      "3) افتح «صلاتي» من الأيقونة، واكتب الرمز إن طُلب منك، واضغط «تفعيل» للتذكير";
+  }
+  function sharePanel(k) {
+    var text = shareText(k), box = el("div", "share");
+    box.appendChild(el("b", null, "أرسل تطبيق «صلاتي» إلى جوال " + (k.name || "الولد")));
+    var pre = el("p", "share-text", text); box.appendChild(pre);
+    var row = el("div", "share-btns");
+    var wa = el("a", "btn wa", "واتساب"); wa.href = "https://wa.me/?text=" + encodeURIComponent(text); wa.target = "_blank"; wa.rel = "noopener";
+    var sms = el("a", "btn", "رسالة SMS"); sms.href = "sms:?&body=" + encodeURIComponent(text);
+    row.appendChild(wa); row.appendChild(sms);
+    if (navigator.share) {
+      var more = el("button", "btn", "مشاركة…"); more.type = "button";
+      more.addEventListener("click", function () { navigator.share({ title: "تطبيق صلاتي", text: text }).catch(function () {}); });
+      row.appendChild(more);
+    }
+    var cp = el("button", "btn", "نسخ"); cp.type = "button";
+    cp.addEventListener("click", function () {
+      var ok = function () { toast("نُسخت الرسالة، الصقها في أي محادثة"); };
+      var fallback = function () { var r = document.createRange(); r.selectNodeContents(pre); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("حدّد النص وانسخه"); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(ok).catch(fallback); else fallback();
+    });
+    row.appendChild(cp);
+    box.appendChild(row);
+    return box;
   }
 
   function renderLoose() {
