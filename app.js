@@ -24,7 +24,10 @@
     return fetch("azkar.json?t=" + Date.now(), { cache: "no-store" })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (d) {
-        if (!saved || (d.version || 0) >= (saved.version || 0)) {
+        // The server's list always wins, except for a few minutes right after this phone saved
+        // its own edit (the site takes a minute or two to publish it).
+        var justSaved = Date.now() - (parseInt(lsGet("azkar-saved-at") || "0", 10) || 0) < 10 * 60000;
+        if (!saved || !justSaved || (d.version || 0) >= (saved.version || 0)) {
           var changed = !saved || JSON.stringify(d) !== JSON.stringify(saved);
           setSaved(d);
           if (changed && !editing) render();
@@ -364,6 +367,7 @@
       });
     }).then(function () {
       editing = false; removed = {};
+      lsSet("azkar-saved-at", String(Date.now()));
       setSaved(next);
       $("editBtn").textContent = "تعديل";
       render();
@@ -918,7 +922,21 @@
     if (open) $("settings").hidden = true;
   });
 
-  window.addEventListener("hashchange", render);
+  // Switching sections: land on the first dhikr not finished yet, or at the top of the section.
+  var lastView = location.hash;
+  function onHash() {
+    render();
+    if (location.hash === lastView) return;
+    lastView = location.hash;
+    var view = $("adhkarView").hidden ? ($("qiblaView").hidden ? $("prayerView") : $("qiblaView")) : $("adhkarView");
+    var rail = document.querySelector("nav.rail"), railH = rail ? rail.getBoundingClientRect().height : 0;
+    var target = view, cards = view === $("adhkarView") ? [].slice.call(listEl.querySelectorAll(".card")) : [];
+    var firstOpen = cards.filter(function (c) { return !c.classList.contains("done"); })[0];
+    if (firstOpen && cards.indexOf(firstOpen) > 0) target = firstOpen;
+    if (target === view) { window.scrollTo(0, 0); return; }
+    window.scrollTo(0, Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - railH - 16));
+  }
+  window.addEventListener("hashchange", onHash);
   // Coming back after 10+ minutes away: reload so the latest version (and any list edits) show up.
   var hiddenAt = 0;
   document.addEventListener("visibilitychange", function () {
