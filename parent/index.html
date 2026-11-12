@@ -36,6 +36,9 @@ button{cursor:pointer}
 button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .wrap{max-width:680px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 48px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
 header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.home{justify-self:start;display:inline-flex;align-items:center;gap:4px;margin-bottom:-6px;padding:6px 12px 6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--accent);font-weight:600;font-size:.9rem;text-decoration:none}
+.home svg{width:18px;height:18px;stroke:currentColor}
+.home:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 header h1{font-family:var(--f-title);font-size:2.1rem;margin:0;line-height:1.2}
 header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
 .btn{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:8px 14px;font-size:.88rem;font-weight:600}
@@ -118,6 +121,7 @@ header p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
 </head>
 <body>
 <main class="wrap">
+  <a class="home" href="../" aria-label="الرجوع إلى الصفحة الرئيسية"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>الرئيسية</a>
   <header>
     <div><h1>أولادي</h1><p id="hello">صلوات الأولاد اليوم وتذكيرهم بالصلاة</p></div>
     <button class="btn" id="refresh" type="button" hidden>تحديث</button>
