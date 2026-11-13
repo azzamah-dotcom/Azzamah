@@ -855,25 +855,28 @@
     });
   }
 
-  // Sound: adhan.mp3 if it was uploaded to the app, otherwise a soft synthesized chime.
-  var actx = null, adhanAudio = null, adhanFile = null;
+  // Sound: the adhan (adhan.mp3) or a soft synthesized chime, both through Web Audio.
+  // Web Audio is not "media" on iPhone: nothing appears on the lock screen or in Control Center,
+  // so headphones, the car or iOS can never resume the adhan on their own. Sound plays only
+  // when an adhan alert fires (or on «تجربة التنبيه»).
+  var actx = null, adhanFile = null, adhanSrc = null, adhanLoading = null;
   fetch("adhan.mp3", { method: "HEAD", cache: "no-store" }).then(function (r) { adhanFile = r.ok && /audio|mpeg|octet/.test(r.headers.get("content-type") || ""); }).catch(function () { adhanFile = false; });
   function unlockAudio() {
+    // iPhone allows sound only after a tap: this just wakes the audio engine, nothing is played.
     try {
       if (!actx) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) actx = new AC(); }
       if (actx && actx.state === "suspended") actx.resume();
-      // iPhone allows sound only after a tap: prepare the adhan during the first tap so it can play later.
-      if (adhanFile !== false && !adhanAudio) {
-        adhanAudio = new Audio("adhan.mp3");
-        adhanAudio.preload = "auto";
-        adhanAudio.setAttribute("playsinline", "");
-        adhanAudio.muted = true;
-        var pr = adhanAudio.play();
-        if (pr && pr.then) pr.then(function () { adhanAudio.pause(); adhanAudio.currentTime = 0; adhanAudio.muted = false; }).catch(function () { adhanAudio.muted = false; });
-      }
     } catch (e) {}
   }
   document.addEventListener("pointerdown", unlockAudio, { passive: true });
+  function loadAdhan() {
+    if (!adhanLoading) {
+      adhanLoading = fetch("adhan.mp3").then(function (r) { if (!r.ok) throw new Error("no adhan"); return r.arrayBuffer(); })
+        .then(function (ab) { return new Promise(function (res, rej) { actx.decodeAudioData(ab, res, rej); }); })
+        .catch(function () { adhanLoading = null; return null; });
+    }
+    return adhanLoading;
+  }
   function chime(times) {
     if (!actx) return;
     try {
@@ -891,19 +894,27 @@
   }
   function playSound(kind) {
     if (!nset.sound) return;
-    if (kind === "adhan" && adhanFile !== false) {
-      try {
-        if (!adhanAudio) { adhanAudio = new Audio("adhan.mp3"); adhanAudio.setAttribute("playsinline", ""); }
-        adhanAudio.muted = false;
-        adhanAudio.currentTime = 0;
-        var pr = adhanAudio.play();
-        if (pr && pr.catch) pr.catch(function () { chime(3); });
-        return;
-      } catch (e) {}
+    if (kind === "adhan" && adhanFile !== false && actx) {
+      if (actx.state === "suspended") actx.resume();
+      var asked = Date.now();
+      loadAdhan().then(function (buf) {
+        if (!buf) { chime(3); return; }
+        if ($("alertCard").hidden || Date.now() - asked > 15000) return; // closed before it was ready
+        stopSound();
+        var src = actx.createBufferSource();
+        src.buffer = buf;
+        src.connect(actx.destination);
+        src.onended = function () { if (adhanSrc === src) adhanSrc = null; };
+        src.start();
+        adhanSrc = src;
+      });
+      return;
     }
     chime(kind === "adhan" ? 3 : 1);
   }
-  function stopSound() { try { if (adhanAudio) adhanAudio.pause(); } catch (e) {} }
+  function stopSound() {
+    if (adhanSrc) { try { adhanSrc.stop(); } catch (e) {} adhanSrc = null; }
+  }
 
   function systemNotify(e) {
     if (!("Notification" in window) || Notification.permission !== "granted" || !navigator.serviceWorker) return false;
