@@ -152,7 +152,9 @@
     renderChips(cat);
     var sl = cat === "prayer" ? prayerSlot() : null;
     $("catTitle").textContent = sl ? "أذكار بعد صلاة " + (sl === "dhuhr" && new Date().getDay() === 5 ? "الجمعة" : PNAMES[sl]) : catObj.name;
-    var items = data.items.filter(function (it) { return it.c === cat; });
+    // Some adhkar belong only to certain prayers (e.g. after Fajr and Maghrib); hide them after the others.
+    var slotNow = cat === "prayer" ? prayerSlot() : null;
+    var items = data.items.filter(function (it) { return it.c === cat && (editing || !it.only || !slotNow || it.only.indexOf(slotNow) >= 0); });
     listEl.textContent = "";
     if (!items.length) {
       listEl.appendChild(el("div", "empty", editing ? "لا يوجد شيء في هذا القسم بعد. أضف أول ذكر من النموذج أدناه." : "لا يوجد شيء في هذا القسم بعد."));
