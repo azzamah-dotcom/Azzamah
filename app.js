@@ -187,7 +187,7 @@
     var items = MINE ? myDuas() : data.items.filter(function (it) { return it.c === cat && (editing || !it.only || !slotNow || it.only.indexOf(slotNow) >= 0); });
     listEl.textContent = "";
     if (!items.length) {
-      listEl.appendChild(el("div", "empty", MINE ? "هنا أدعيتك الخاصة، محفوظة على جوالك فقط. اضغط زر + بجانب العنوان لإضافة أول دعاء." :
+      listEl.appendChild(el("div", "empty", MINE ? "هنا أدعيتك الخاصة، محفوظة على جوالك فقط. اضغط «تعديل» في الأعلى ثم + لإضافة أول دعاء." :
         editing ? "لا يوجد شيء في هذا القسم بعد. أضف أول ذكر من النموذج أدناه." : "لا يوجد شيء في هذا القسم بعد."));
     }
     // Long sections are split into groups, with quick-jump buttons at the top.
@@ -227,7 +227,7 @@
       var ring = el("div", "ring"); ring.appendChild(el("span")); cnt.appendChild(ring);
       foot.appendChild(src); foot.appendChild(cnt);
       card.appendChild(foot);
-      if (MINE) {
+      if (MINE && myEditing) {
         var dm = el("button", "del", "حذف"); dm.type = "button";
         dm.addEventListener("click", function (ev) {
           ev.stopPropagation();
@@ -236,7 +236,7 @@
           delete prog.left[it.id]; saveProg(); render(); toast("حُذف الدعاء");
         });
         card.appendChild(dm);
-      } else if (editing) {
+      } else if (editing && !MINE) {
         var del = el("button", "del", removed[it.id] ? "تراجع" : "حذف");
         del.type = "button";
         del.addEventListener("click", function (ev) {
@@ -249,7 +249,7 @@
       }
       cardState(card, it);
       function tap() {
-        if (editing && !MINE) return;
+        if ((editing && !MINE) || (MINE && myEditing)) return;
         checkDay();
         var l = left(it);
         if (l === 0) return;
@@ -278,7 +278,9 @@
     });
     updateProgress(items);
     $("addForm").hidden = !editing || MINE;
-    $("myAdd").hidden = !MINE;
+    $("myAdd").hidden = !(MINE && myEditing);
+    $("myEdit").hidden = !MINE;
+    if (!MINE && myEditing) setMyEditing(false);
     if (!MINE) showMyForm(false);
     $("editBar").hidden = !editing;
     if (editing && !MINE && !$("fCat").value) $("fCat").value = catObj.name;
@@ -465,21 +467,46 @@
     $("hero").hidden = false;
     nextAyah(false);
   }
-  function nextAyah(animate) {
-    var list = data.ayat, last = parseInt(lsGet("azkar-last-ayah") || "-1", 10), i;
-    do { i = Math.floor(Math.random() * list.length); } while (list.length > 1 && (i === ayahIdx || i === last));
+  // The ayahs seen this session, so swiping back returns to the previous one.
+  var ayahHist = [], ayahPos = -1;
+  function nextAyah(animate, dir) {
+    var list = data.ayat, i;
+    if (dir === "prev") {
+      if (ayahPos <= 0) return;
+      ayahPos--; i = ayahHist[ayahPos];
+    } else if (ayahPos < ayahHist.length - 1) {
+      ayahPos++; i = ayahHist[ayahPos];
+    } else {
+      var last = parseInt(lsGet("azkar-last-ayah") || "-1", 10);
+      do { i = Math.floor(Math.random() * list.length); } while (list.length > 1 && (i === ayahIdx || i === last));
+      ayahHist.push(i); ayahPos = ayahHist.length - 1;
+    }
     ayahIdx = i; lsSet("azkar-last-ayah", String(i)); ayahStart = Date.now();
     var a = list[i], hero = $("hero");
     function show() {
       $("ayahText").textContent = a.t;
       $("ayahRef").textContent = "سورة " + a.r + " · الآية " + a.a;
       curAyah = a;
-      hero.classList.remove("fade");
+      hero.classList.remove("fade", "slide-next", "slide-prev");
     }
-    if (animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) { hero.classList.add("fade"); setTimeout(show, 400); }
-    else show();
+    if (animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      hero.classList.add(dir === "prev" ? "slide-prev" : dir === "next" ? "slide-next" : "fade");
+      setTimeout(show, dir ? 220 : 400);
+    } else show();
   }
-  $("ayahNext").addEventListener("click", function (ev) { ev.stopPropagation(); nextAyah(true); });
+  // Swipe the banner: to the right for a new ayah, to the left for the previous one.
+  var swipe = null, swiped = 0;
+  $("hero").addEventListener("touchstart", function (e) { var t = e.touches[0]; swipe = { x: t.clientX, y: t.clientY }; }, { passive: true });
+  $("hero").addEventListener("touchend", function (e) {
+    if (!swipe) return;
+    var t = e.changedTouches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+    swipe = null;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      swiped = Date.now();
+      if (dx > 0 || ayahPos <= 0) nextAyah(true, "next"); else nextAyah(true, "prev");
+      haptic(15, 1);
+    }
+  }, { passive: true });
 
   // Ayah details sheet: tafsir, when it was revealed, and the occasion of revelation if any.
   var lastFocus = null;
@@ -503,7 +530,7 @@
     document.body.style.overflow = "";
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
-  $("hero").addEventListener("click", openSheet);
+  $("hero").addEventListener("click", function () { if (Date.now() - swiped > 350) openSheet(); });
   $("hero").addEventListener("keydown", function (ev) { if (ev.target === $("hero") && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); openSheet(); } });
   $("shClose").addEventListener("click", closeSheet);
   $("sheetBack").addEventListener("click", closeSheet);
@@ -1023,6 +1050,15 @@
     window.scrollTo(0, Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - railH - 16));
   }
   // The add form opens only from the small + button next to the title.
+  // "أدعيتي" edit mode: adding (+) and deleting appear only after tapping «تعديل».
+  var myEditing = false;
+  function setMyEditing(on) {
+    myEditing = on;
+    $("myEdit").textContent = on ? "تم" : "تعديل";
+    $("myEdit").setAttribute("aria-pressed", on ? "true" : "false");
+    if (!on) showMyForm(false);
+  }
+  $("myEdit").addEventListener("click", function () { setMyEditing(!myEditing); render(); });
   function showMyForm(open) {
     $("myForm").hidden = !open;
     $("myAdd").setAttribute("aria-expanded", open ? "true" : "false");

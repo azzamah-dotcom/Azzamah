@@ -256,6 +256,13 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .title-row{display:flex;align-items:center;gap:10px;min-width:0}
 .add-btn{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:var(--accent);color:var(--paper);font-size:1.5rem;line-height:1;font-weight:600;display:grid;place-items:center;padding:0 0 3px;cursor:pointer}
 .add-btn[aria-expanded="true"]{transform:rotate(45deg)}
+.my-edit{padding:5px 14px;font-size:.85rem}
+.my-edit[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.hero-hint{font-size:.75rem;color:#cfe0d8;opacity:.85}
+.hero{touch-action:pan-y}
+.hero .hero-ayah{transition:opacity .25s,transform .25s}
+.hero.slide-next .hero-ayah{opacity:0;transform:translateX(40px)}
+.hero.slide-prev .hero-ayah{opacity:0;transform:translateX(-40px)}
 .add-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .foot{margin-top:28px;color:var(--muted);font-size:.8rem;line-height:1.8}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -332,7 +339,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
   </section>
 
   <section class="hero" id="hero" hidden aria-live="polite" role="button" tabindex="0" aria-label="اضغط لعرض التفسير">
-    <div class="hero-top"><span class="eyebrow">آية للتدبّر</span><button class="hero-next" id="ayahNext" type="button">آية أخرى</button></div>
+    <div class="hero-top"><span class="eyebrow">آية للتدبّر</span><span class="hero-hint" aria-hidden="true">‹ اسحب لآية أخرى ›</span></div>
     <p class="hero-ayah" id="ayahText"></p>
     <div class="hero-foot">
       <span id="ayahRef"></span>
@@ -359,7 +366,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 
   <div id="adhkarView">
     <div class="progress"><div class="bar"><i id="barFill"></i></div><span id="progTxt">0 / 0</span></div>
-    <div class="cat-head"><div class="title-row"><h2 id="catTitle">جارٍ التحميل…</h2><button class="add-btn" id="myAdd" type="button" hidden aria-label="إضافة دعاء" aria-expanded="false" aria-controls="myForm" title="إضافة دعاء">+</button></div><button class="reset-btn" id="resetBtn" type="button" aria-label="إعادة العداد" title="إعادة العداد"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.4 5.7"/><path d="M20 4v7h-7"/></svg></button></div>
+    <div class="cat-head"><div class="title-row"><h2 id="catTitle">جارٍ التحميل…</h2><button class="add-btn" id="myAdd" type="button" hidden aria-label="إضافة دعاء" aria-expanded="false" aria-controls="myForm" title="إضافة دعاء">+</button><button class="btn my-edit" id="myEdit" type="button" hidden aria-pressed="false">تعديل</button></div><button class="reset-btn" id="resetBtn" type="button" aria-label="إعادة العداد" title="إعادة العداد"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.4 5.7"/><path d="M20 4v7h-7"/></svg></button></div>
     <form class="panel my-form" id="myForm" hidden>
       <h3>أضف دعاءً خاصًا بك</h3>
       <p>أدعيتك محفوظة على هذا الجوال فقط، ولا يراها غيرك.</p>
