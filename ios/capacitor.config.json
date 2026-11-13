@@ -1,0 +1,14 @@
+{
+  "appId": "com.azzamah.hisnalazkar",
+  "appName": "حصن الأذكار",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#eef1ec",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 600, "backgroundColor": "#0f5c4a", "showSpinner": false },
+    "LocalNotifications": { "iconColor": "#0f5c4a" }
+  }
+}

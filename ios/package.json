@@ -1,0 +1,22 @@
+{
+  "name": "hisn-alazkar-ios",
+  "private": true,
+  "version": "1.0.0",
+  "description": "حصن الأذكار — نسخة تطبيق الآيفون (Capacitor)",
+  "scripts": {
+    "build": "node build.mjs",
+    "sync": "node build.mjs && npx cap sync ios",
+    "open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/cli": "^7.6.10",
+    "@capacitor/core": "^7.6.10",
+    "@capacitor/geolocation": "^7.1.8",
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/ios": "^7.6.10",
+    "@capacitor/local-notifications": "^7.0.7",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6"
+  }
+}
