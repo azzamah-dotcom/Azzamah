@@ -1,7 +1,7 @@
 // Offline support. The app's own files are fetched fresh from the server on every open (so edits
 // show up as soon as the app is reopened) and fall back to the saved copy when there is no internet.
 // Fonts are served from the saved copy first since they never change.
-var CACHE = "azkar-v27";
+var CACHE = "azkar-v28";
 var SHELL = ["./", "index.html", "prayer.js", "app.js", "azkar.json", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {
@@ -26,6 +26,9 @@ self.addEventListener("fetch", function (e) {
   if (req.method !== "GET") return;
   var url = new URL(req.url);
   if (url.hostname === "api.github.com" || url.hostname === "api.bigdatacloud.net") return;
+  // Audio (the adhan) is left to the browser: iPhone Safari plays media only through
+  // byte-range requests, which a service worker reply would break.
+  if (req.headers.has("range") || /\.(mp3|m4a|caf|wav|ogg)$/i.test(url.pathname)) return;
 
   if (url.origin === location.origin) {
     // Network first, bypassing the browser cache, then the saved copy.

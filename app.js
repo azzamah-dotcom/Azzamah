@@ -824,7 +824,15 @@
     try {
       if (!actx) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) actx = new AC(); }
       if (actx && actx.state === "suspended") actx.resume();
-      if (adhanFile && !adhanAudio) { adhanAudio = new Audio("adhan.mp3"); adhanAudio.preload = "auto"; adhanAudio.muted = true; adhanAudio.play().then(function () { adhanAudio.pause(); adhanAudio.muted = false; adhanAudio.currentTime = 0; }).catch(function () { adhanAudio.muted = false; }); }
+      // iPhone allows sound only after a tap: prepare the adhan during the first tap so it can play later.
+      if (adhanFile !== false && !adhanAudio) {
+        adhanAudio = new Audio("adhan.mp3");
+        adhanAudio.preload = "auto";
+        adhanAudio.setAttribute("playsinline", "");
+        adhanAudio.muted = true;
+        var pr = adhanAudio.play();
+        if (pr && pr.then) pr.then(function () { adhanAudio.pause(); adhanAudio.currentTime = 0; adhanAudio.muted = false; }).catch(function () { adhanAudio.muted = false; });
+      }
     } catch (e) {}
   }
   document.addEventListener("pointerdown", unlockAudio, { passive: true });
@@ -845,8 +853,15 @@
   }
   function playSound(kind) {
     if (!nset.sound) return;
-    if (kind === "adhan" && adhanFile) {
-      try { if (!adhanAudio) adhanAudio = new Audio("adhan.mp3"); adhanAudio.currentTime = 0; adhanAudio.play().catch(function () { chime(3); }); return; } catch (e) {}
+    if (kind === "adhan" && adhanFile !== false) {
+      try {
+        if (!adhanAudio) { adhanAudio = new Audio("adhan.mp3"); adhanAudio.setAttribute("playsinline", ""); }
+        adhanAudio.muted = false;
+        adhanAudio.currentTime = 0;
+        var pr = adhanAudio.play();
+        if (pr && pr.catch) pr.catch(function () { chime(3); });
+        return;
+      } catch (e) {}
     }
     chime(kind === "adhan" ? 3 : 1);
   }
@@ -900,7 +915,8 @@
   });
   $("nTest").addEventListener("click", function () {
     unlockAudio();
-    setTimeout(function () { fireAlert({ id: "test", kind: "adhan", title: "تجربة التنبيه", body: "هكذا سيظهر تنبيه الأذان عند دخول وقت الصلاة.", url: "#times" }); }, 150);
+    // Played right inside the tap, as iPhone requires for sound.
+    fireAlert({ id: "test", kind: "adhan", title: "تجربة التنبيه", body: "هكذا سيظهر تنبيه الأذان عند دخول وقت الصلاة.", url: "#times" });
     // Also ask the server to send a real notification, to confirm alerts arrive while the app is closed.
     var ep = lsGet("azkar-push-ep");
     if (pushUrl() && ep) fetch(pushUrl() + "/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: ep }) }).catch(function () {});
