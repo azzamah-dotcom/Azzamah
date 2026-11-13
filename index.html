@@ -251,6 +251,8 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .grp-head{margin:14px 0 0;font-family:var(--f-text);font-size:1.35rem;color:var(--gold);display:flex;align-items:center;gap:10px}
 .grp-head::after{content:"";flex:1;height:1px;background:var(--line)}
 .my-form p{margin:0}
+.admin-box{display:grid;gap:10px;border-top:1px dashed var(--line);padding-top:12px;margin-top:4px}
+.admin-box h3{margin:0;font-size:.95rem}
 .title-row{display:flex;align-items:center;gap:10px;min-width:0}
 .add-btn{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:var(--accent);color:var(--paper);font-size:1.5rem;line-height:1;font-weight:600;display:grid;place-items:center;padding:0 0 3px;cursor:pointer}
 .add-btn[aria-expanded="true"]{transform:rotate(45deg)}
@@ -283,14 +285,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
   </section>
 
   <section class="panel" id="settings" hidden>
-    <h3>الإعدادات</h3>
-    <p>هذا القسم لمشرف القائمة فقط. بعد إدخال المفتاح يظهر زر «تعديل»، وأي تغيير تحفظه يصل إلى جوالات العائلة تلقائيًا خلال دقيقة أو دقيقتين.</p>
-    <label for="sRepo">المستودع على GitHub
-      <input id="sRepo" dir="ltr" placeholder="owner/repo" autocomplete="off">
-    </label>
-    <label for="sToken">مفتاح GitHub (Fine-grained token بصلاحية Contents: Read and write)
-      <input id="sToken" dir="ltr" type="password" autocomplete="off" placeholder="github_pat_...">
-    </label>
+    <h3 id="setTitle">الإعدادات</h3>
     <div class="row">
       <label for="sMethod">طريقة حساب أوقات الصلاة
         <select id="sMethod"><option value="auto">تلقائي حسب البلد</option></select>
@@ -316,11 +311,23 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
       <label for="iq-isha">العشاء<input id="iq-isha" type="number" inputmode="numeric" min="0" max="90"></label>
     </div>
     <div class="tools"><button class="btn" id="nTest" type="button">تجربة التنبيه</button><button class="btn" id="vTest" type="button">تجربة الاهتزاز</button><button class="btn" id="nPerm" type="button">السماح بالإشعارات</button></div>
-    <div class="msg" id="sMsg"></div>
     <div class="tools">
-      <button class="btn primary" id="sSave" type="button">حفظ</button>
-      <button class="btn" id="sClear" type="button">إزالة المفتاح</button>
       <button class="btn" id="sRefresh" type="button">تحديث القائمة الآن</button>
+    </div>
+    <div class="admin-box" id="adminBox" hidden>
+      <h3>مشرف القائمة</h3>
+      <p>هذا القسم لمشرف القائمة فقط. بعد إدخال المفتاح يظهر زر «تعديل»، وأي تغيير تحفظه يصل إلى جوالات العائلة تلقائيًا خلال دقيقة أو دقيقتين.</p>
+      <label for="sRepo">المستودع على GitHub
+        <input id="sRepo" dir="ltr" placeholder="owner/repo" autocomplete="off">
+      </label>
+      <label for="sToken">مفتاح GitHub (Fine-grained token بصلاحية Contents: Read and write)
+        <input id="sToken" dir="ltr" type="password" autocomplete="off" placeholder="github_pat_...">
+      </label>
+      <div class="msg" id="sMsg"></div>
+      <div class="tools">
+        <button class="btn primary" id="sSave" type="button">حفظ</button>
+        <button class="btn" id="sClear" type="button">إزالة المفتاح</button>
+      </div>
     </div>
   </section>
 

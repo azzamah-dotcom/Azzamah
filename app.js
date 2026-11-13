@@ -347,12 +347,23 @@
     return "تعذّر الاتصال بـ GitHub. تأكد من الإنترنت وحاول مرة أخرى.";
   }
 
+  // List-admin fields (GitHub) stay hidden from the family: they show on the admin's phone
+  // (where the key is saved) or after tapping the "الإعدادات" title 7 times.
+  var adminTaps = 0, adminTapTimer = null;
+  function syncAdminBox() { $("adminBox").hidden = !(lsGet("azkar-gh-token") || adminTaps >= 7); }
+  $("setTitle").addEventListener("click", function () {
+    adminTaps++;
+    clearTimeout(adminTapTimer); adminTapTimer = setTimeout(function () { if (adminTaps < 7) adminTaps = 0; }, 3000);
+    if (adminTaps === 7) { syncAdminBox(); toast("ظهرت إعدادات مشرف القائمة"); }
+  });
   $("settingsBtn").addEventListener("click", function () {
     var s = $("settings"); s.hidden = !s.hidden;
     if (!s.hidden) {
       $("sRepo").value = lsGet("azkar-gh-repo") || defaultRepo();
       $("sToken").value = lsGet("azkar-gh-token") ? "••••••••" : "";
       $("sMsg").textContent = ""; $("sMsg").className = "msg";
+      if (!lsGet("azkar-gh-token")) adminTaps = 0;
+      syncAdminBox();
     }
   });
   $("sSave").addEventListener("click", function () {
