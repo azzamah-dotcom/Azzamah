@@ -84,6 +84,7 @@
   function currentCat() {
     var h = decodeURIComponent(location.hash.slice(1));
     if (h === "mine") return "mine";
+    if (h === "friday" && new Date().getDay() !== 5) return data.cats[0].id;
     return data.cats.some(function (c) { return c.id === h; }) ? h : data.cats[0].id;
   }
   function el(tag, cls, text) {
@@ -109,6 +110,8 @@
   function renderChips(cat) {
     chipsEl.textContent = "";
     data.cats.forEach(function (c) {
+      // The Friday section shows only on Friday, once opened from the Friday note or notification.
+      if (c.id === "friday" && !(cat === "friday" && new Date().getDay() === 5)) return;
       var a = el("a", "chip", chipLabel(c));
       a.title = c.name;
       a.href = "#" + c.id;
@@ -803,6 +806,7 @@
       ev.push({ id: day + "am", at: t.fajr.getTime() + 40 * 60000, kind: "chime", title: "أذكار الصباح", body: "حان وقت أذكار الصباح، اغتنمها قبل أن يشغلك يومك.", url: "#morning", go: "افتح أذكار الصباح" });
       ev.push({ id: day + "pm", at: t.asr.getTime() + 30 * 60000, kind: "chime", title: "أذكار المساء", body: "حان وقت أذكار المساء قبل غروب الشمس.", url: "#evening", go: "افتح أذكار المساء" });
       ev.push({ id: day + "sl", at: t.isha.getTime() + 150 * 60000, kind: "chime", title: "أذكار النوم", body: "لا تنسَ أذكار النوم قبل أن تنام.", url: "#sleep", go: "افتح أذكار النوم" });
+      if (new Date().getDay() === 5) ev.push({ id: day + "fr", at: t.sunrise.getTime() + 90 * 60000, kind: "chime", title: "🕌 اليوم الجمعة", body: "سورة الكهف، والإكثار من الصلاة على النبي ﷺ، والتبكير إلى الصلاة، وساعة الإجابة آخر ساعة بعد العصر.", url: "#friday", go: "افتح سنن الجمعة" });
     }
     return ev;
   }

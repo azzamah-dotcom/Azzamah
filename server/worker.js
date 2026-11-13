@@ -351,6 +351,7 @@ function eventsFor(s, day, prof) {
     ev.push({ tag: id + "am", at: t.fajr + 40 * 60000, title: "☀️ أذكار الصباح", body: "حان وقت أذكار الصباح، اغتنمها قبل أن يشغلك يومك.", url: "#morning" });
     ev.push({ tag: id + "pm", at: t.asr + 30 * 60000, title: "🌙 أذكار المساء", body: "حان وقت أذكار المساء قبل غروب الشمس.", url: "#evening" });
     ev.push({ tag: id + "sl", at: t.isha + 150 * 60000, title: "أذكار النوم", body: "لا تنسَ أذكار النوم قبل أن تنام.", url: "#sleep" });
+    if (fri) ev.push({ tag: id + "fr", at: t.sunrise + 90 * 60000, title: "🕌 اليوم الجمعة", body: "سورة الكهف، والإكثار من الصلاة على النبي ﷺ، والتبكير إلى الصلاة، وساعة الإجابة آخر ساعة بعد العصر.", url: "#friday" });
   }
   return ev;
 }
