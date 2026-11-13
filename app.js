@@ -99,6 +99,13 @@
     if (c.id === "quran") return "أدعية قرآنية";
     return c.name.replace(/^أذكار\s+/, "").replace(/^يوم\s+/, "");
   }
+  // A soft fade on the far edge tells there are more sections to swipe to.
+  function updateChipFade() {
+    var rest = chipsEl.scrollWidth - chipsEl.clientWidth - Math.abs(chipsEl.scrollLeft);
+    chipsEl.classList.toggle("more", rest > 4);
+  }
+  chipsEl.addEventListener("scroll", updateChipFade, { passive: true });
+  window.addEventListener("resize", updateChipFade);
   function renderChips(cat) {
     chipsEl.textContent = "";
     data.cats.forEach(function (c) {
@@ -123,7 +130,15 @@
     q.setAttribute("aria-current", cat === "qibla" ? "true" : "false");
     chipsEl.appendChild(q);
     var cur = chipsEl.querySelector('[aria-current="true"]');
-    chipsEl.style.setProperty("--cols", Math.min(5, Math.ceil(chipsEl.children.length / 2)));
+    // Fill the first row, then the second, so the order reads across; extra columns are reached by swiping.
+    var all = [].slice.call(chipsEl.children), half = Math.ceil(all.length / 2);
+    all.forEach(function (c, i) { c.style.gridRow = i < half ? "1" : "2"; c.style.gridColumn = String((i < half ? i : i - half) + 1); });
+    var on = chipsEl.querySelector('[aria-current="true"]');
+    if (on) {
+      var r = on.getBoundingClientRect(), box = chipsEl.getBoundingClientRect();
+      if (r.left < box.left || r.right > box.right) chipsEl.scrollLeft += r.left < box.left ? r.left - box.left - 8 : r.right - box.right + 8;
+    }
+    updateChipFade();
     var dl = $("catList"); dl.textContent = "";
     data.cats.forEach(function (c) { var o = el("option"); o.value = c.name; dl.appendChild(o); });
   }
@@ -169,7 +184,7 @@
     var items = MINE ? myDuas() : data.items.filter(function (it) { return it.c === cat && (editing || !it.only || !slotNow || it.only.indexOf(slotNow) >= 0); });
     listEl.textContent = "";
     if (!items.length) {
-      listEl.appendChild(el("div", "empty", MINE ? "هنا أدعيتك الخاصة. اكتب أول دعاء في الخانة أدناه، واختر عدد المرات، ثم اضغط «أضف دعائي»." :
+      listEl.appendChild(el("div", "empty", MINE ? "هنا أدعيتك الخاصة، محفوظة على جوالك فقط. اضغط زر + بجانب العنوان لإضافة أول دعاء." :
         editing ? "لا يوجد شيء في هذا القسم بعد. أضف أول ذكر من النموذج أدناه." : "لا يوجد شيء في هذا القسم بعد."));
     }
     // Long sections are split into groups, with quick-jump buttons at the top.
@@ -260,7 +275,8 @@
     });
     updateProgress(items);
     $("addForm").hidden = !editing || MINE;
-    $("myForm").hidden = !MINE;
+    $("myAdd").hidden = !MINE;
+    if (!MINE) showMyForm(false);
     $("editBar").hidden = !editing;
     if (editing && !MINE && !$("fCat").value) $("fCat").value = catObj.name;
     updatePending();
@@ -983,6 +999,15 @@
     if (target === view) { window.scrollTo(0, 0); return; }
     window.scrollTo(0, Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - railH - 16));
   }
+  // The add form opens only from the small + button next to the title.
+  function showMyForm(open) {
+    $("myForm").hidden = !open;
+    $("myAdd").setAttribute("aria-expanded", open ? "true" : "false");
+    $("myAdd").setAttribute("aria-label", open ? "إغلاق" : "إضافة دعاء");
+    if (open) { $("myMsg").textContent = ""; $("myForm").scrollIntoView({ block: "center" }); setTimeout(function () { $("myText").focus(); }, 50); }
+  }
+  $("myAdd").addEventListener("click", function () { showMyForm($("myForm").hidden); });
+  $("myCancel").addEventListener("click", function () { showMyForm(false); });
   $("myForm").addEventListener("submit", function (ev) {
     ev.preventDefault();
     var t = $("myText").value.trim(), n = parseInt($("myCount").value, 10);
@@ -992,6 +1017,7 @@
     a.push({ id: "my" + Date.now().toString(36), c: "mine", t: t.slice(0, 1500), n: n, s: "", g: "دعائي" });
     saveMyDuas(a);
     $("myText").value = ""; $("myCount").value = 1; $("myMsg").textContent = "";
+    showMyForm(false);
     render(); toast("أُضيف دعاؤك");
   });
   window.addEventListener("hashchange", onHash);

@@ -60,16 +60,20 @@ button{font:inherit;cursor:pointer;color:inherit}
 .fs-step{border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:0;font-family:var(--f-text);font-weight:700;line-height:1.9;cursor:pointer;min-height:52px;display:grid;place-items:center}
 .fs-step[aria-checked="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
 .fs-sample{margin:0;font-family:var(--f-text);font-size:1.38rem;text-align:center;color:var(--ink)}
-html.fs-l .chips{grid-template-columns:repeat(4,minmax(0,1fr))}
-html.fs-xl .chips{grid-template-columns:repeat(3,minmax(0,1fr))}
+html.fs-l .chips{grid-auto-columns:calc((100% - 3 * 6px) / 4)}
+html.fs-xl .chips{grid-auto-columns:calc((100% - 2 * 6px) / 3)}
 .icon-btn svg{width:20px;height:20px;stroke:var(--ink)}
 .btn:focus-visible,.card:focus-visible,.chip:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin-top:14px;padding-block:10px;border-bottom:1px solid var(--line)}
-.chips{display:grid;grid-template-columns:repeat(var(--cols,5),minmax(0,1fr));gap:6px}
-.chip{min-width:0;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:7px 2px;font-size:.8rem;line-height:1.3;white-space:nowrap;text-decoration:none;overflow:hidden;text-overflow:ellipsis}
+/* Two rows of sections; swipe sideways for the rest */
+.chips{display:grid;grid-template-rows:repeat(2,auto);grid-auto-flow:column;grid-auto-columns:calc((100% - 4 * 6px) / 5);gap:6px;
+  overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:1px}
+.chips::-webkit-scrollbar{display:none}
+.chips.more{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 36px);mask-image:linear-gradient(to left,transparent 0,#000 36px)}
+.chip{min-width:0;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:7px 2px;font-size:.8rem;line-height:1.3;white-space:nowrap;text-decoration:none;overflow:hidden;text-overflow:ellipsis}
 @media (min-width:520px){.chip{font-size:.9rem;padding:8px 6px}}
-@media (max-width:350px){.chips{gap:4px}.chip{font-size:.7rem;padding:7px 1px}}
+@media (max-width:350px){.chip{font-size:.72rem;padding:7px 1px}}
 .chip[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
 
 .progress{display:flex;align-items:center;gap:12px;margin:16px 0 6px}
@@ -247,6 +251,10 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .grp-head{margin:14px 0 0;font-family:var(--f-text);font-size:1.35rem;color:var(--gold);display:flex;align-items:center;gap:10px}
 .grp-head::after{content:"";flex:1;height:1px;background:var(--line)}
 .my-form p{margin:0}
+.title-row{display:flex;align-items:center;gap:10px;min-width:0}
+.add-btn{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:var(--accent);color:var(--paper);font-size:1.5rem;line-height:1;font-weight:600;display:grid;place-items:center;padding:0 0 3px;cursor:pointer}
+.add-btn[aria-expanded="true"]{transform:rotate(45deg)}
+.add-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .foot{margin-top:28px;color:var(--muted);font-size:.8rem;line-height:1.8}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -344,8 +352,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 
   <div id="adhkarView">
     <div class="progress"><div class="bar"><i id="barFill"></i></div><span id="progTxt">0 / 0</span></div>
-    <div class="cat-head"><h2 id="catTitle">جارٍ التحميل…</h2><button class="reset-btn" id="resetBtn" type="button" aria-label="إعادة العداد" title="إعادة العداد"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.4 5.7"/><path d="M20 4v7h-7"/></svg></button></div>
-    <div class="list" id="list"></div>
+    <div class="cat-head"><div class="title-row"><h2 id="catTitle">جارٍ التحميل…</h2><button class="add-btn" id="myAdd" type="button" hidden aria-label="إضافة دعاء" aria-expanded="false" aria-controls="myForm" title="إضافة دعاء">+</button></div><button class="reset-btn" id="resetBtn" type="button" aria-label="إعادة العداد" title="إعادة العداد"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.4 5.7"/><path d="M20 4v7h-7"/></svg></button></div>
     <form class="panel my-form" id="myForm" hidden>
       <h3>أضف دعاءً خاصًا بك</h3>
       <p>أدعيتك محفوظة على هذا الجوال فقط، ولا يراها غيرك.</p>
@@ -356,8 +363,9 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
         <input id="myCount" type="number" inputmode="numeric" min="1" max="1000" value="1">
       </label>
       <div class="msg err" id="myMsg"></div>
-      <div><button class="btn primary" type="submit">أضف دعائي</button></div>
+      <div class="tools"><button class="btn primary" type="submit">أضف دعائي</button><button class="btn" id="myCancel" type="button">إلغاء</button></div>
     </form>
+    <div class="list" id="list"></div>
   </div>
 
   <section id="prayerView" hidden>
