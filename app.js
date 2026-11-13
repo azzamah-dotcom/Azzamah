@@ -75,8 +75,15 @@
     if (had && data && !editing && currentCat && location.hash === "#prayer") render();
   }
 
+  // ---------- personal duas (kept on this phone only) ----------
+  function myDuas() {
+    try { var a = JSON.parse(lsGet("azkar-mine") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+  }
+  function saveMyDuas(a) { lsSet("azkar-mine", JSON.stringify(a)); }
+
   function currentCat() {
     var h = decodeURIComponent(location.hash.slice(1));
+    if (h === "mine") return "mine";
     return data.cats.some(function (c) { return c.id === h; }) ? h : data.cats[0].id;
   }
   function el(tag, cls, text) {
@@ -101,6 +108,11 @@
       a.setAttribute("aria-current", c.id === cat ? "true" : "false");
       chipsEl.appendChild(a);
     });
+    var my = el("a", "chip", "أدعيتي");
+    my.href = "#mine";
+    my.title = "أدعيتي الخاصة";
+    my.setAttribute("aria-current", cat === "mine" ? "true" : "false");
+    chipsEl.appendChild(my);
     var pr = el("a", "chip", "المواقيت");
     pr.title = "أوقات الصلاة";
     pr.href = "#times";
@@ -111,7 +123,7 @@
     q.setAttribute("aria-current", cat === "qibla" ? "true" : "false");
     chipsEl.appendChild(q);
     var cur = chipsEl.querySelector('[aria-current="true"]');
-    chipsEl.style.setProperty("--cols", Math.min(6, Math.ceil(chipsEl.children.length / 2)));
+    chipsEl.style.setProperty("--cols", Math.min(5, Math.ceil(chipsEl.children.length / 2)));
     var dl = $("catList"); dl.textContent = "";
     data.cats.forEach(function (c) { var o = el("option"); o.value = c.name; dl.appendChild(o); });
   }
@@ -147,22 +159,45 @@
       $("addForm").hidden = true; $("editBar").hidden = !editing;
       return;
     }
-    var cat = currentCat();
-    var catObj = data.cats.filter(function (c) { return c.id === cat; })[0];
+    var cat = currentCat(), MINE = cat === "mine";
+    var catObj = MINE ? { id: "mine", name: "أدعيتي" } : data.cats.filter(function (c) { return c.id === cat; })[0];
     renderChips(cat);
     var sl = cat === "prayer" ? prayerSlot() : null;
     $("catTitle").textContent = sl ? "أذكار بعد صلاة " + (sl === "dhuhr" && new Date().getDay() === 5 ? "الجمعة" : PNAMES[sl]) : catObj.name;
     // Some adhkar belong only to certain prayers (e.g. after Fajr and Maghrib); hide them after the others.
     var slotNow = cat === "prayer" ? prayerSlot() : null;
-    var items = data.items.filter(function (it) { return it.c === cat && (editing || !it.only || !slotNow || it.only.indexOf(slotNow) >= 0); });
+    var items = MINE ? myDuas() : data.items.filter(function (it) { return it.c === cat && (editing || !it.only || !slotNow || it.only.indexOf(slotNow) >= 0); });
     listEl.textContent = "";
     if (!items.length) {
-      listEl.appendChild(el("div", "empty", editing ? "لا يوجد شيء في هذا القسم بعد. أضف أول ذكر من النموذج أدناه." : "لا يوجد شيء في هذا القسم بعد."));
+      listEl.appendChild(el("div", "empty", MINE ? "هنا أدعيتك الخاصة. اكتب أول دعاء في الخانة أدناه، واختر عدد المرات، ثم اضغط «أضف دعائي»." :
+        editing ? "لا يوجد شيء في هذا القسم بعد. أضف أول ذكر من النموذج أدناه." : "لا يوجد شيء في هذا القسم بعد."));
     }
+    // Long sections are split into groups, with quick-jump buttons at the top.
+    var groups = [];
+    items.forEach(function (it) { if (it.grp && groups.indexOf(it.grp) < 0) groups.push(it.grp); });
+    if (groups.length > 1) {
+      var nav = el("nav", "grp-nav"); nav.setAttribute("aria-label", "مجموعات القسم");
+      groups.forEach(function (g, gi) {
+        var b = el("button", "grp-btn", g); b.type = "button";
+        b.addEventListener("click", function () {
+          var h = $("grp-" + gi), rail = document.querySelector("nav.rail");
+          if (h) window.scrollTo(0, Math.max(0, h.getBoundingClientRect().top + window.pageYOffset - (rail ? rail.getBoundingClientRect().height : 0) - 10));
+        });
+        nav.appendChild(b);
+      });
+      listEl.appendChild(nav);
+    }
+    var lastGrp = null;
     items.forEach(function (it) {
+      if (it.grp && it.grp !== lastGrp) {
+        lastGrp = it.grp;
+        var gh = el("h3", "grp-head", it.grp); gh.id = "grp-" + groups.indexOf(it.grp);
+        listEl.appendChild(gh);
+      }
       var card = el("article", "card");
       card.tabIndex = 0;
       card.setAttribute("role", "button");
+      if (it.w) card.appendChild(el("span", "when", it.w));
       card.appendChild(el("p", "txt", it.t));
       if (it.f) card.appendChild(el("p", "note", it.f));
       var foot = el("footer");
@@ -174,7 +209,16 @@
       var ring = el("div", "ring"); ring.appendChild(el("span")); cnt.appendChild(ring);
       foot.appendChild(src); foot.appendChild(cnt);
       card.appendChild(foot);
-      if (editing) {
+      if (MINE) {
+        var dm = el("button", "del", "حذف"); dm.type = "button";
+        dm.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          if (!dm.dataset.sure) { dm.dataset.sure = "1"; dm.textContent = "تأكيد الحذف"; setTimeout(function () { delete dm.dataset.sure; dm.textContent = "حذف"; }, 3500); return; }
+          saveMyDuas(myDuas().filter(function (x) { return x.id !== it.id; }));
+          delete prog.left[it.id]; saveProg(); render(); toast("حُذف الدعاء");
+        });
+        card.appendChild(dm);
+      } else if (editing) {
         var del = el("button", "del", removed[it.id] ? "تراجع" : "حذف");
         del.type = "button";
         del.addEventListener("click", function (ev) {
@@ -187,7 +231,7 @@
       }
       cardState(card, it);
       function tap() {
-        if (editing) return;
+        if (editing && !MINE) return;
         checkDay();
         var l = left(it);
         if (l === 0) return;
@@ -203,7 +247,7 @@
         if (allDone) setTimeout(function () { celebrate(catObj); }, 350);
         if (finished && !allDone) {
           var next = card.nextElementSibling;
-          while (next && next.classList.contains("done")) next = next.nextElementSibling;
+          while (next && (!next.classList.contains("card") || next.classList.contains("done"))) next = next.nextElementSibling;
           if (next && next.classList.contains("card")) {
             var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
             setTimeout(function () { next.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" }); }, 250);
@@ -215,9 +259,10 @@
       listEl.appendChild(card);
     });
     updateProgress(items);
-    $("addForm").hidden = !editing;
+    $("addForm").hidden = !editing || MINE;
+    $("myForm").hidden = !MINE;
     $("editBar").hidden = !editing;
-    if (editing && !$("fCat").value) $("fCat").value = catObj.name;
+    if (editing && !MINE && !$("fCat").value) $("fCat").value = catObj.name;
     updatePending();
   }
 
@@ -938,6 +983,17 @@
     if (target === view) { window.scrollTo(0, 0); return; }
     window.scrollTo(0, Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - railH - 16));
   }
+  $("myForm").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var t = $("myText").value.trim(), n = parseInt($("myCount").value, 10);
+    if (!t) { $("myMsg").textContent = "اكتب الدعاء أولًا."; $("myText").focus(); return; }
+    if (!(n >= 1 && n <= 1000)) { $("myMsg").textContent = "عدد المرات من 1 إلى 1000."; return; }
+    var a = myDuas();
+    a.push({ id: "my" + Date.now().toString(36), c: "mine", t: t.slice(0, 1500), n: n, s: "", g: "دعائي" });
+    saveMyDuas(a);
+    $("myText").value = ""; $("myCount").value = 1; $("myMsg").textContent = "";
+    render(); toast("أُضيف دعاؤك");
+  });
   window.addEventListener("hashchange", onHash);
   // Coming back after 10+ minutes away: reload so the latest version (and any list edits) show up.
   var hiddenAt = 0;

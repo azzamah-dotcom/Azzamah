@@ -240,6 +240,13 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .celeb-box .btn{padding:10px 26px;font-size:1rem}
 #confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:46}
 @media (prefers-reduced-motion:reduce){.celeb-box,.celeb-star{animation:none}}
+.card .when{display:inline-block;font-size:.78rem;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:2px 10px;margin-bottom:8px}
+.grp-nav{display:flex;flex-wrap:wrap;gap:6px}
+.grp-btn{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:.84rem;font-family:var(--f-ui)}
+.grp-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.grp-head{margin:14px 0 0;font-family:var(--f-text);font-size:1.35rem;color:var(--gold);display:flex;align-items:center;gap:10px}
+.grp-head::after{content:"";flex:1;height:1px;background:var(--line)}
+.my-form p{margin:0}
 .foot{margin-top:28px;color:var(--muted);font-size:.8rem;line-height:1.8}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -339,6 +346,18 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
     <div class="progress"><div class="bar"><i id="barFill"></i></div><span id="progTxt">0 / 0</span></div>
     <div class="cat-head"><h2 id="catTitle">جارٍ التحميل…</h2><button class="reset-btn" id="resetBtn" type="button" aria-label="إعادة العداد" title="إعادة العداد"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.4 5.7"/><path d="M20 4v7h-7"/></svg></button></div>
     <div class="list" id="list"></div>
+    <form class="panel my-form" id="myForm" hidden>
+      <h3>أضف دعاءً خاصًا بك</h3>
+      <p>أدعيتك محفوظة على هذا الجوال فقط، ولا يراها غيرك.</p>
+      <label for="myText">الدعاء
+        <textarea id="myText" maxlength="1500" placeholder="اكتب دعاءك هنا…"></textarea>
+      </label>
+      <label for="myCount">عدد المرات
+        <input id="myCount" type="number" inputmode="numeric" min="1" max="1000" value="1">
+      </label>
+      <div class="msg err" id="myMsg"></div>
+      <div><button class="btn primary" type="submit">أضف دعائي</button></div>
+    </form>
   </div>
 
   <section id="prayerView" hidden>
