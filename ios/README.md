@@ -38,9 +38,15 @@ npm run open
 1. اختر المشروع **App** من اليسار ← تبويب **Signing & Capabilities**.
 2. في **Team** اختر حسابك (Apple ID أو حساب المطوّر).
 3. إذا ظهر خطأ في **Bundle Identifier**، غيّره إلى شيء فريد، مثل `com.azzamah.hisnalazkar`.
-4. اضغط **+ Capability** وأضف **Push Notifications** (غير ضروري للتنبيهات المحلية، لكنه مفيد لاحقًا).
+4. **لا تضف** Push Notifications: التطبيق لا يحتاجها (تنبيهاته مجدولة على الجوال)، وحساب Apple ID المجاني لا يدعمها.
 5. وصّل الآيفون بالكابل، واختره من أعلى Xcode، ثم اضغط ▶️ **Run**.
 6. أول مرة على الجوال: الإعدادات ← عام ← VPN وإدارة الجهاز ← ثق بالمطوّر.
+
+## ملاحظة عن Xcode الحديث
+
+Xcode بنسخة iOS 26 SDK يشترط نظام النوافذ الجديد (UIScene). المشروع مهيّأ له في `AppDelegate.swift`
+(يحتوي `SceneDelegate`) وفي `Info.plist` (`UIApplicationSceneManifest`). لا تعِد إنشاء مجلد `ios/` بأمر
+`npx cap add ios`، لأن ذلك يرجع القالب القديم ويعود الخطأ «UIScene life cycle is required».
 
 ## إضافة صوت الأذان للتنبيهات
 
