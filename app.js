@@ -662,16 +662,8 @@
   // No zooming: double-tap and pinch are blocked so a quick double tap on a dhikr never zooms the page.
   document.addEventListener("gesturestart", function (e) { e.preventDefault(); });
   document.addEventListener("dblclick", function (e) { e.preventDefault(); }, { passive: false });
-  var lastTouch = 0;
-  document.addEventListener("touchend", function (e) {
-    var now = Date.now();
-    if (now - lastTouch < 350 && e.cancelable) {
-      e.preventDefault();
-      var t = e.target.closest && e.target.closest(".card");
-      if (t) t.click();
-    }
-    lastTouch = now;
-  }, { passive: false });
+  // Double-tap zoom is turned off by "touch-action: manipulation" in the page styles, so every tap
+  // (including quick double taps on a dhikr) reaches the page as a normal tap.
 
   // ---------- Prayer times ----------
   var PC = window.PrayerCalc;
