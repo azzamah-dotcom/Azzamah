@@ -1044,12 +1044,31 @@
     render(); toast("أُضيف دعاؤك");
   });
   window.addEventListener("hashchange", onHash);
-  // Coming back after 10+ minutes away: reload so the latest version (and any list edits) show up.
-  var hiddenAt = 0;
+
+  // ---------- updates: apply a new version as soon as the app is opened or brought back ----------
+  // Compares the published files' fingerprints (ETag) with the ones this copy started with.
+  var buildSig = null, updating = false;
+  function fileSig(files) {
+    return Promise.all(files.map(function (f) {
+      return fetch(f + "?t=" + Date.now(), { method: "HEAD", cache: "no-store" })
+        .then(function (r) { return r.ok ? (r.headers.get("etag") || r.headers.get("last-modified") || "") : ""; });
+    })).then(function (a) { return a.join("|"); });
+  }
+  function checkForUpdate(files, canReload) {
+    if (updating || navigator.onLine === false) return;
+    fileSig(files).then(function (sig) {
+      if (!sig.replace(/\|/g, "")) return;
+      if (buildSig === null) { buildSig = sig; return; }
+      if (sig !== buildSig && canReload()) { updating = true; location.reload(); }
+    }).catch(function () {});
+  }
+  var APP_FILES = ["index.html", "app.js", "prayer.js"];
+  function canReloadMain() { return !editing && $("sheet").hidden && $("alertCard").hidden && $("myForm").hidden && $("celebrate").hidden; }
+  setTimeout(function () { checkForUpdate(APP_FILES, canReloadMain); }, 1500);
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
-    if (hiddenAt && Date.now() - hiddenAt > 10 * 60000 && !editing && $("sheet").hidden && $("alertCard").hidden && navigator.onLine !== false) { location.reload(); return; }
+    if (document.visibilityState === "visible") checkForUpdate(APP_FILES, canReloadMain);
   });
+  setInterval(function () { if (document.visibilityState === "visible") checkForUpdate(APP_FILES, canReloadMain); }, 5 * 60000);
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") { checkDay(); if (!editing) fetchShared(false); }
   });

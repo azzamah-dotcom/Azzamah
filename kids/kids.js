@@ -538,7 +538,15 @@
     b.addEventListener("click", function () { lsSet("kids-theme", th.id); applySettings(); chime(1); });
     $("themes").appendChild(b);
   });
+  // The account part (link code, change account) is for parents: it shows after 7 taps on the title.
+  var acctTaps = 0, acctTimer = null;
+  $("setTitle").addEventListener("click", function () {
+    acctTaps++;
+    clearTimeout(acctTimer); acctTimer = setTimeout(function () { if (acctTaps < 7) acctTaps = 0; }, 3000);
+    if (acctTaps === 7) $("acctBox").hidden = false;
+  });
   function openSettings() {
+    acctTaps = 0; $("acctBox").hidden = true;
     var nm = linkedName();
     $("setLinked").textContent = nm ? "هذا الجوال مربوط باسم «" + nm + "»، وصلواتك تظهر لأهلك." : "هذا الجوال غير مربوط بعد. اطلب رمز الربط من بابا أو ماما.";
     $("setLink").textContent = nm ? "تغيير الحساب" : "إدخال رمز الربط";
@@ -555,10 +563,31 @@
 
   // ---------- start ----------
   // Coming back after 10+ minutes: reload so the latest version shows.
-  var hiddenAt = 0;
+
+  // ---------- updates: apply a new version as soon as the app is opened or brought back ----------
+  // Compares the published files' fingerprints (ETag) with the ones this copy started with.
+  var buildSig = null, updating = false;
+  function fileSig(files) {
+    return Promise.all(files.map(function (f) {
+      return fetch(f + "?t=" + Date.now(), { method: "HEAD", cache: "no-store" })
+        .then(function (r) { return r.ok ? (r.headers.get("etag") || r.headers.get("last-modified") || "") : ""; });
+    })).then(function (a) { return a.join("|"); });
+  }
+  function checkForUpdate(files, canReload) {
+    if (updating || navigator.onLine === false) return;
+    fileSig(files).then(function (sig) {
+      if (!sig.replace(/\|/g, "")) return;
+      if (buildSig === null) { buildSig = sig; return; }
+      if (sig !== buildSig && canReload()) { updating = true; location.reload(); }
+    }).catch(function () {});
+  }
+  var KIDS_FILES = ["index.html", "kids.js", "../prayer.js"];
+  function canReloadKids() { return $("pop").hidden && $("linkPop").hidden && $("setSheet").hidden; }
+  setTimeout(function () { checkForUpdate(KIDS_FILES, canReloadKids); }, 1500);
+  setInterval(function () { if (document.visibilityState === "visible") checkForUpdate(KIDS_FILES, canReloadKids); }, 5 * 60000);
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
-    if (hiddenAt && Date.now() - hiddenAt > 600000 && $("pop").hidden && navigator.onLine !== false) { location.reload(); return; }
+    if (document.visibilityState !== "visible") return;
+    checkForUpdate(KIDS_FILES, canReloadKids);
     render(); locate(); pullInfo();
   });
   document.addEventListener("gesturestart", function (e) { e.preventDefault(); });

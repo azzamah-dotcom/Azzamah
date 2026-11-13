@@ -1,7 +1,7 @@
 // Offline support. The app's own files are fetched fresh from the server on every open (so edits
 // show up as soon as the app is reopened) and fall back to the saved copy when there is no internet.
 // Fonts are served from the saved copy first since they never change.
-var CACHE = "kids-v6";
+var CACHE = "kids-v7";
 var SHELL = ["./", "index.html", "kids.js", "../prayer.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {
@@ -30,7 +30,9 @@ self.addEventListener("fetch", function (e) {
 
   if (url.origin === location.origin) {
     // Network first, bypassing the browser cache, then the saved copy.
-    e.respondWith(fetch(req.url, { cache: "no-store" }).then(function (res) {
+    // A unique query makes GitHub Pages' servers return the newest copy, not a cached one.
+    var fresh = req.url.split("#")[0] + (url.search ? "&" : "?") + "_v=" + Date.now();
+    e.respondWith(fetch(fresh, { cache: "no-store" }).then(function (res) {
       if (res.ok) { var copy = res.clone(); caches.open(CACHE).then(function (c) { c.put(cacheKey(url), copy); }); }
       return res;
     }).catch(function () {
