@@ -19,13 +19,13 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Zain:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Scheherazade+New:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
 <style>
 :root{
   --bg:#eef1ec;--paper:#fbfcf9;--ink:#1b2a24;--muted:#5d6e66;--line:#d5ddd6;
   --accent:#0f5c4a;--accent-soft:#dcebe4;--gold:#9a7a2c;--done:#e6ebe7;--danger:#a8322a;
   --f-text:"Amiri","Traditional Arabic","Times New Roman",serif;
-  --f-dhikr:"Zain","Amiri","Geeza Pro","Traditional Arabic",sans-serif;
+  --f-dhikr:"Scheherazade New","Amiri","Geeza Pro","Traditional Arabic",sans-serif;
   --f-ui:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;
   color-scheme:light;
 }
@@ -93,7 +93,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .list{display:flex;flex-direction:column;gap:14px;margin-top:14px}
 .card{position:relative;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px 20px 14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:background .2s,opacity .2s,transform .08s}
 .card:active{transform:scale(.993)}
-.card .txt{font-family:var(--f-dhikr);font-size:1.5rem;line-height:2.2;margin:0;white-space:pre-line}
+.card .txt{font-family:var(--f-dhikr);font-size:1.6rem;line-height:2.1;margin:0;white-space:pre-line}
 .card .note{color:var(--muted);font-size:.85rem;margin:10px 0 0;line-height:1.7}
 .card footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
 .src{font-size:.8rem;color:var(--muted);line-height:1.6;min-width:0}
@@ -120,7 +120,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .panel textarea{font-family:var(--f-dhikr);font-size:1.15rem;min-height:110px;line-height:1.8}
 .panel input[dir="ltr"]{text-align:left}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media (max-width:480px){.row{grid-template-columns:1fr}.card .txt{font-size:1.38rem}}
+@media (max-width:480px){.row{grid-template-columns:1fr}.card .txt{font-size:1.5rem}}
 .msg{font-size:.85rem;min-height:1em}
 .msg.err{color:var(--danger)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.88rem;z-index:20;display:flex;align-items:center;gap:12px;white-space:nowrap}
