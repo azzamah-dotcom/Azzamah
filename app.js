@@ -1039,6 +1039,31 @@
     $("fsSteps").appendChild(b);
   });
   applyFs(curFs());
+  // Font type for the adhkar text (each person picks their own; saved on this phone only).
+  var FF = [
+    { k: "", n: "النسخ", f: '"Scheherazade New"', z: 1 },
+    { k: "amiriq", n: "المصحف", f: '"Amiri Quran"', z: .95 },
+    { k: "amiri", n: "الأميري", f: '"Amiri"', z: .95 },
+    { k: "noto", n: "نسخ حديث", f: '"Noto Naskh Arabic"', z: .85 },
+    { k: "ruqaa", n: "الرقعة", f: '"Aref Ruqaa"', z: .92 },
+    { k: "zain", n: "زين", f: '"Zain"', z: .94 }
+  ];
+  function applyFf(k) {
+    var f = FF.filter(function (x) { return x.k === k; })[0] || FF[0], root = document.documentElement;
+    if (f.k) { root.style.setProperty("--f-dhikr", f.f + ',"Amiri","Geeza Pro",serif'); root.style.setProperty("--dk", f.z); }
+    else { root.style.removeProperty("--f-dhikr"); root.style.removeProperty("--dk"); }
+    $("ffName").textContent = f.n;
+    [].forEach.call($("ffGrid").children, function (b) { b.setAttribute("aria-checked", b.dataset.k === f.k ? "true" : "false"); });
+  }
+  FF.forEach(function (f) {
+    var b = el("button", "ff");
+    b.type = "button"; b.dataset.k = f.k; b.setAttribute("role", "radio"); b.setAttribute("aria-label", f.n);
+    var t = el("b", "", "بِسْمِ اللَّهِ"); t.style.fontFamily = f.f; t.style.fontSize = (1.25 * f.z) + "rem";
+    b.appendChild(t); b.appendChild(el("small", "", f.n));
+    b.addEventListener("click", function () { if (f.k) lsSet("azkar-font", f.k); else lsSet("azkar-font", ""); applyFf(f.k); });
+    $("ffGrid").appendChild(b);
+  });
+  applyFf(lsGet("azkar-font") || "");
   $("fsBtn").addEventListener("click", function () {
     var open = $("fsPanel").hidden;
     $("fsPanel").hidden = !open;

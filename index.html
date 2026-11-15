@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="الأذكار">
 <script>
   // Font size chosen on this phone (set before the page draws, so it never jumps).
+  (function () { try { var F = { amiriq: ['"Amiri Quran"', .95], amiri: ['"Amiri"', .95], noto: ['"Noto Naskh Arabic"', .85], ruqaa: ['"Aref Ruqaa"', .92], zain: ['"Zain"', .94] }[localStorage.getItem("azkar-font")]; if (F) { document.documentElement.style.setProperty("--f-dhikr", F[0] + ',"Amiri","Geeza Pro",serif'); document.documentElement.style.setProperty("--dk", F[1]); } } catch (e) {} })();
   (function () { try { var s = parseFloat(localStorage.getItem("azkar-fs")); if (s > 0.8 && s < 1.8) { document.documentElement.style.fontSize = (16 * s) + "px"; document.documentElement.className += s >= 1.3 ? " fs-xl" : s > 1.05 ? " fs-l" : ""; } } catch (e) {} })();
 </script>
 <link rel="manifest" href="manifest.webmanifest">
@@ -19,7 +20,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Scheherazade+New:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Scheherazade+New:wght@400;700&family=Amiri+Quran&family=Noto+Naskh+Arabic:wght@400;600&family=Aref+Ruqaa:wght@400;700&family=Zain:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
 <style>
 :root{
   --bg:#eef1ec;--paper:#fbfcf9;--ink:#1b2a24;--muted:#5d6e66;--line:#d5ddd6;
@@ -60,7 +61,13 @@ button{font:inherit;cursor:pointer;color:inherit}
 .fs-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;align-items:end}
 .fs-step{border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:0;font-family:var(--f-text);font-weight:700;line-height:1.9;cursor:pointer;min-height:52px;display:grid;place-items:center}
 .fs-step[aria-checked="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
-.fs-sample{margin:0;font-family:var(--f-dhikr);font-size:1.38rem;text-align:center;color:var(--ink)}
+.ff-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.ff{border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:6px 4px 4px;cursor:pointer;display:grid;gap:0;justify-items:center;min-height:62px}
+.ff b{font-weight:400;font-size:1.25rem;line-height:1.9}
+.ff small{font-family:var(--f-text);font-size:.72rem;color:var(--muted,#5d6e66)}
+.ff[aria-checked="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.ff[aria-checked="true"] small{color:var(--paper)}
+.fs-sample{margin:0;font-family:var(--f-dhikr);font-size:calc(1.38rem * var(--dk,1));text-align:center;color:var(--ink)}
 html.fs-l .chips{grid-auto-columns:calc((100% - 3 * 6px) / 4)}
 html.fs-xl .chips{grid-auto-columns:calc((100% - 2 * 6px) / 3)}
 .icon-btn svg{width:20px;height:20px;stroke:var(--ink)}
@@ -93,7 +100,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .list{display:flex;flex-direction:column;gap:14px;margin-top:14px}
 .card{position:relative;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px 20px 14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;transition:background .2s,opacity .2s,transform .08s}
 .card:active{transform:scale(.993)}
-.card .txt{font-family:var(--f-dhikr);font-size:1.6rem;line-height:2.1;margin:0;white-space:pre-line}
+.card .txt{font-family:var(--f-dhikr);font-size:calc(1.6rem * var(--dk,1));line-height:2.1;margin:0;white-space:pre-line}
 .card .note{color:var(--muted);font-size:.85rem;margin:10px 0 0;line-height:1.7}
 .card footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
 .src{font-size:.8rem;color:var(--muted);line-height:1.6;min-width:0}
@@ -120,7 +127,7 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
 .panel textarea{font-family:var(--f-dhikr);font-size:1.15rem;min-height:110px;line-height:1.8}
 .panel input[dir="ltr"]{text-align:left}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media (max-width:480px){.row{grid-template-columns:1fr}.card .txt{font-size:1.5rem}}
+@media (max-width:480px){.row{grid-template-columns:1fr}.card .txt{font-size:calc(1.5rem * var(--dk,1))}}
 .msg{font-size:.85rem;min-height:1em}
 .msg.err{color:var(--danger)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.88rem;z-index:20;display:flex;align-items:center;gap:12px;white-space:nowrap}
@@ -289,6 +296,8 @@ nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:v
   <section class="fs-panel" id="fsPanel" hidden aria-label="حجم الخط">
     <div class="fs-head"><b>حجم الخط</b><span id="fsName">عادي</span></div>
     <div class="fs-steps" id="fsSteps" role="radiogroup" aria-label="حجم الخط"></div>
+    <div class="fs-head"><b>نوع الخط</b><span id="ffName"></span></div>
+    <div class="ff-grid" id="ffGrid" role="radiogroup" aria-label="نوع الخط"></div>
     <p class="fs-sample">سُبْحَانَ اللَّهِ وَبِحَمْدِهِ</p>
   </section>
 
