@@ -227,6 +227,13 @@
       var ring = el("div", "ring"); ring.appendChild(el("span")); cnt.appendChild(ring);
       foot.appendChild(src); foot.appendChild(cnt);
       card.appendChild(foot);
+      if (MINE && !myEditing) {
+        card.classList.add("mine");
+        var sb = el("button", "share-btn"); sb.type = "button"; sb.setAttribute("aria-label", "مشاركة الدعاء");
+        sb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg>';
+        sb.addEventListener("click", function (ev) { ev.stopPropagation(); openShare(it); });
+        card.appendChild(sb);
+      }
       if (MINE && myEditing) {
         var dm = el("button", "del", "حذف"); dm.type = "button";
         dm.addEventListener("click", function (ev) {
@@ -1087,6 +1094,153 @@
   }
   // The add form opens only from the small + button next to the title.
   // "أدعيتي" edit mode: adding (+) and deleting appear only after tapping «تعديل».
+  // ---------- sharing a personal dua: copy, send to a friend, or an Instagram story picture ----------
+  var APP_URL = location.origin + location.pathname.replace(/index\.html$/, "");
+  var TPL = [
+    { k: "green", n: "أخضر" }, { k: "sand", n: "رملي" }, { k: "night", n: "ليلي" }, { k: "rose", n: "وردي" }
+  ];
+  var spItem = null, spTpl = lsGet("azkar-story-tpl") || "green";
+  function shareText(it) { return it.t + "\n\n🤲 من تطبيق حصن الأذكار\n" + APP_URL; }
+  function dhikrFont() {
+    var f = getComputedStyle(document.documentElement).getPropertyValue("--f-dhikr").trim() || '"Scheherazade New",serif';
+    var z = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--dk")) || 1;
+    return { f: f, z: z };
+  }
+  // Repeating eight-point stars, the classic Islamic pattern.
+  function stars(ctx, W, H, step, color, alpha) {
+    ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 2;
+    for (var y = 0; y < H + step; y += step) for (var x = (y / step) % 2 ? step / 2 : 0; x < W + step; x += step) {
+      var r = step * 0.28;
+      ctx.beginPath(); ctx.rect(x - r, y - r, 2 * r, 2 * r); ctx.stroke();
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.beginPath(); ctx.rect(-r, -r, 2 * r, 2 * r); ctx.stroke(); ctx.restore();
+    }
+    ctx.restore();
+  }
+  function frame(ctx, W, H, m, color, lw) {
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw;
+    var r = 46;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(m, m, W - 2 * m, H - 2 * m, r); else ctx.rect(m, m, W - 2 * m, H - 2 * m);
+    ctx.stroke();
+    ctx.lineWidth = lw / 2; ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(m + 18, m + 18, W - 2 * m - 36, H - 2 * m - 36, r - 14); else ctx.rect(m + 18, m + 18, W - 2 * m - 36, H - 2 * m - 36);
+    ctx.stroke(); ctx.restore();
+  }
+  function ornament(ctx, cx, cy, color, s) {
+    ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-200 * s, 0); ctx.lineTo(-40 * s, 0); ctx.moveTo(40 * s, 0); ctx.lineTo(200 * s, 0); ctx.stroke();
+    ctx.rotate(Math.PI / 4); ctx.fillRect(-14 * s, -14 * s, 28 * s, 28 * s); ctx.rotate(-Math.PI / 4);
+    [-1, 1].forEach(function (d) { ctx.beginPath(); ctx.arc(d * 30 * s, 0, 6 * s, 0, 7); ctx.fill(); });
+    ctx.restore();
+  }
+  function crescent(ctx, x, y, r, color) {
+    ctx.save(); ctx.beginPath(); ctx.rect(x - 2 * r, y - 2 * r, 4 * r, 4 * r); ctx.moveTo(x + r * 1.28, y - r * 0.18); ctx.arc(x + r * 0.42, y - r * 0.18, r * 0.86, 0, 7, true); ctx.clip("evenodd");
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.restore();
+  }
+  function wrapLines(ctx, text, maxW) {
+    var out = [];
+    text.split(/\n+/).forEach(function (para) {
+      var words = para.split(/\s+/).filter(Boolean), line = "";
+      words.forEach(function (w) {
+        var t = line ? line + " " + w : w;
+        if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t;
+      });
+      if (line) out.push(line);
+    });
+    return out;
+  }
+  function drawStory(cv, it, k, small) {
+    var ctx = cv.getContext("2d"), W = 1080, H = 1920;
+    if (small) { ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0); } else ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var th = {
+      green: { bg: ["#0b3d31", "#0f5c4a", "#06261f"], ink: "#fbf6e9", acc: "#d9b65f", pat: "#d9b65f" },
+      sand: { bg: ["#f7efdc", "#efe2c3", "#e6d4ad"], ink: "#1f3b31", acc: "#9a7a2c", pat: "#9a7a2c" },
+      night: { bg: ["#0c1530", "#1b2a55", "#070c1c"], ink: "#f3f1ea", acc: "#e8c872", pat: "#8fa3d9" },
+      rose: { bg: ["#fbeeee", "#f4dbdc", "#ecc8cb"], ink: "#4a2430", acc: "#b0546b", pat: "#b0546b" }
+    }[k];
+    var g = ctx.createLinearGradient(0, 0, W * 0.4, H);
+    g.addColorStop(0, th.bg[0]); g.addColorStop(0.55, th.bg[1]); g.addColorStop(1, th.bg[2]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    stars(ctx, W, H, 150, th.pat, k === "night" ? 0.08 : 0.1);
+    if (k === "night") {
+      crescent(ctx, 820, 300, 70, th.acc);
+      ctx.fillStyle = th.acc; [[220, 260, 5], [330, 420, 3], [640, 200, 4], [900, 520, 3], [160, 1650, 4], [920, 1580, 5]].forEach(function (p) { ctx.beginPath(); ctx.arc(p[0], p[1], p[2], 0, 7); ctx.fill(); });
+    }
+    frame(ctx, W, H, 60, th.acc, 5);
+    ctx.direction = "rtl"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    var fz = dhikrFont();
+    ctx.fillStyle = th.acc; ctx.font = "600 52px " + fz.f;
+    ctx.fillText("دُعَاء", W / 2, 330);
+    ornament(ctx, W / 2, 410, th.acc, 1);
+    // Fit the dua in the middle box, shrinking the text for long duas.
+    var boxW = W - 260, boxTop = 480, boxBot = 1500, size = 84 * fz.z, lines, lh;
+    for (; size > 30; size -= 3) {
+      ctx.font = size + "px " + fz.f; lh = size * 1.95;
+      lines = wrapLines(ctx, it.t, boxW);
+      if (lines.length * lh <= boxBot - boxTop) break;
+    }
+    ctx.fillStyle = th.ink;
+    var y0 = (boxTop + boxBot) / 2 - (lines.length - 1) * lh / 2;
+    lines.forEach(function (l, i) { ctx.fillText(l, W / 2, y0 + i * lh); });
+    ornament(ctx, W / 2, 1570, th.acc, 0.8);
+    ctx.fillStyle = th.acc; ctx.font = "600 40px 'IBM Plex Sans Arabic',sans-serif";
+    ctx.fillText("حصن الأذكار", W / 2, 1680);
+    ctx.globalAlpha = 0.75; ctx.fillStyle = th.ink; ctx.font = "30px 'IBM Plex Sans Arabic',sans-serif";
+    ctx.fillText("لا تنسونا من صالح دعائكم", W / 2, 1745); ctx.globalAlpha = 1;
+  }
+  function renderStory() {
+    if (!spItem) return;
+    drawStory($("spPrev"), spItem, spTpl);
+    [].forEach.call($("spTpls").children, function (b) { b.setAttribute("aria-checked", b.dataset.k === spTpl ? "true" : "false"); });
+  }
+  TPL.forEach(function (t) {
+    var b = el("button", "sp-tpl"); b.type = "button"; b.dataset.k = t.k; b.setAttribute("role", "radio"); b.setAttribute("aria-label", t.n);
+    var c = document.createElement("canvas"); c.width = 180; c.height = 320; b.appendChild(c);
+    b.addEventListener("click", function () { spTpl = t.k; lsSet("azkar-story-tpl", t.k); renderStory(); });
+    $("spTpls").appendChild(b);
+  });
+  function openShare(it) {
+    spItem = it;
+    $("spText").textContent = it.t;
+    $("spSheet").hidden = false; $("spBack").hidden = false;
+    var fz = dhikrFont();
+    var ready = document.fonts && document.fonts.load ? Promise.all([document.fonts.load("84px " + fz.f, it.t), document.fonts.load("600 40px 'IBM Plex Sans Arabic'", "حصن")]) : Promise.resolve();
+    ready.catch(function () {}).then(function () {
+      [].forEach.call($("spTpls").children, function (b) { drawStory(b.firstChild, { t: "سُبْحَانَ اللَّهِ" }, b.dataset.k, true); });
+      renderStory();
+    });
+  }
+  function closeShare() { $("spSheet").hidden = true; $("spBack").hidden = true; }
+  $("spClose").addEventListener("click", closeShare);
+  $("spBack").addEventListener("click", closeShare);
+  $("spCopy").addEventListener("click", function () {
+    var t = spItem ? shareText(spItem) : "";
+    function fallback() {
+      var ta = document.createElement("textarea"); ta.value = t; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); toast("نُسخ الدعاء"); } catch (e) { toast("تعذّر النسخ"); } ta.remove();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { toast("نُسخ الدعاء"); }, fallback); else fallback();
+  });
+  $("spSend").addEventListener("click", function () {
+    var t = spItem ? shareText(spItem) : "";
+    if (navigator.share) navigator.share({ text: t }).catch(function () {});
+    else location.href = "https://wa.me/?text=" + encodeURIComponent(t);
+  });
+  $("spStory").addEventListener("click", function () {
+    var cv = $("spPrev");
+    cv.toBlob(function (blob) {
+      if (!blob) return toast("تعذّر تجهيز الصورة");
+      var file = new File([blob], "dua-story.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file] }).catch(function () {});
+      } else {
+        var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "dua-story.png";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+        toast("حُفظت الصورة، انشرها من إنستغرام كستوري");
+      }
+    }, "image/png");
+  });
   var myEditing = false;
   function setMyEditing(on) {
     myEditing = on;
